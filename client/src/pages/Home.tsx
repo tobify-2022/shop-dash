@@ -10,6 +10,7 @@ import { SuccessPlanStatusChart } from '@/components/dashboard/success-plan-stat
 import { EngagementPriorityHelper } from '@/components/dashboard/engagement-priority-helper';
 import { ProductChanges } from '@/components/dashboard/product-changes';
 import { fetchBookOfBusiness, fetchProductAdoptionSignals } from '@/lib/merchant-snapshot-service';
+import { runFullInvestigation } from '@/lib/schema-investigation';
 
 export default function Home() {
   const { user, loading: identityLoading } = useIdentity();
@@ -87,6 +88,14 @@ export default function Home() {
             <h1 className="text-3xl font-bold">Good morning, {user?.given_name || 'Dugald'}!</h1>
             <p className="text-sm mt-1 text-green-50">Here's your merchant success overview for today.</p>
             <p className="text-xs mt-0.5 text-green-100">Senior MSM • North America</p>
+            
+            {/* Temporary Investigation Button */}
+            <button
+              onClick={() => runFullInvestigation()}
+              className="mt-3 px-3 py-1 text-xs bg-white/20 hover:bg-white/30 rounded border border-white/30 transition-colors"
+            >
+              🔍 Investigate BigQuery Schema (Check Console)
+            </button>
           </div>
           
           {/* Today's Focus Widget */}
