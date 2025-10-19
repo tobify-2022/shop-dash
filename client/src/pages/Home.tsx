@@ -79,14 +79,26 @@ export default function Home() {
       };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">MSM Dashboard</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {user?.fullName || 'Dugald Todd'}
-          </p>
+    <div className="bg-gray-50 min-h-full">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-[#008060] to-[#009970] text-white px-6 py-6">
+        <div className="max-w-[1600px] mx-auto flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Good morning, {user?.given_name || 'Dugald'}!</h1>
+            <p className="text-sm mt-1 text-green-50">Here's your merchant success overview for today.</p>
+            <p className="text-xs mt-0.5 text-green-100">Senior MSM • North America</p>
+          </div>
+          
+          {/* Today's Focus Widget */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[200px]">
+            <div className="text-xs font-medium text-green-50 mb-2">Today's Focus</div>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold">0 calls scheduled</div>
+              <div className="text-xs text-green-100">
+                {bobData?.highRisk || 0} merchants need attention
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
