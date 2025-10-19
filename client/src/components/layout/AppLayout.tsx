@@ -8,7 +8,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
 
@@ -18,7 +18,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <Header />
 
         {/* Main Content - Scrollable */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-background">
           {children}
         </main>
       </div>

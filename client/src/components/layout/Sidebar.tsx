@@ -48,16 +48,16 @@ export function Sidebar() {
   const [location] = useLocation();
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto flex flex-col">
+    <aside className="w-64 bg-card border-r border-border h-screen overflow-y-auto flex flex-col">
       {/* Logo/Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-[#008060] rounded flex items-center justify-center">
             <Users className="w-5 h-5 text-white" />
           </div>
           <div>
-            <div className="font-semibold text-sm">Merchant Success</div>
-            <div className="text-xs text-gray-500">MSM Dashboard</div>
+            <div className="font-semibold text-sm text-foreground">Merchant Success</div>
+            <div className="text-xs text-muted-foreground">MSM Dashboard</div>
           </div>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function Sidebar() {
         {navSections.map((section, sectionIdx) => (
           <div key={sectionIdx} className="mb-4">
             {section.title && (
-              <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {section.title}
               </div>
             )}
@@ -83,7 +83,7 @@ export function Sidebar() {
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                         isActive
                           ? 'bg-[#008060] text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       )}
                     >
                       <Icon className="w-4 h-4" />

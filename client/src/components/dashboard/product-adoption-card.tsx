@@ -40,11 +40,11 @@ export function ProductAdoptionCard({ data }: ProductAdoptionCardProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
+        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <Package className="w-5 h-5 text-[#008060]" />
           Product Adoption
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-1">Across all accounts</p>
+        <p className="text-xs text-muted-foreground mt-1">Across all accounts</p>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -55,12 +55,12 @@ export function ProductAdoptionCard({ data }: ProductAdoptionCardProps) {
             return (
               <div key={product.name}>
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-medium">{product.name}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs font-medium text-foreground">{product.name}</span>
+                  <span className="text-xs text-muted-foreground">
                     {product.data.adopted} of {product.data.total}
                   </span>
                 </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className={`h-full ${colorClass} transition-all`}
                     style={{ width: `${percentage}%` }}

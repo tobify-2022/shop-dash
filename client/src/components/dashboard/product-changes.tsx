@@ -38,7 +38,7 @@ export function ProductChanges({ className }: ProductChangesProps) {
           )}
           Product Changes
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
+        <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2 mb-4">
@@ -66,8 +66,8 @@ export function ProductChanges({ className }: ProductChangesProps) {
           {changes.map((change, idx) => (
             <div key={idx} className="border rounded-lg p-3">
               <div className="font-medium text-sm">{change.merchant}</div>
-              <div className="text-xs text-gray-600 mt-1">{change.product}</div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-muted-foreground mt-1">{change.product}</div>
+              <div className="text-xs text-muted-foreground mt-1">
                 {new Date(change.date).toLocaleDateString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 

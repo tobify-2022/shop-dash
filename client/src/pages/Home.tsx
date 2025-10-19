@@ -79,9 +79,9 @@ export default function Home() {
       };
 
   return (
-    <div className="bg-gray-50 min-h-full">
+    <div className="bg-background min-h-full">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-[#008060] to-[#009970] text-white px-6 py-6">
+      <div className="bg-gradient-to-r from-[#006d4e] to-[#008060] text-white px-6 py-6">
         <div className="max-w-[1600px] mx-auto flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold">Good morning, {user?.given_name || 'Dugald'}!</h1>
@@ -90,7 +90,7 @@ export default function Home() {
           </div>
           
           {/* Today's Focus Widget */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[200px]">
+          <div className="bg-black/20 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[200px] border border-white/10">
             <div className="text-xs font-medium text-green-50 mb-2">Today's Focus</div>
             <div className="space-y-1">
               <div className="text-2xl font-bold">0 calls scheduled</div>
@@ -139,8 +139,8 @@ export default function Home() {
           )}
 
           {/* Placeholder Card */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex items-center justify-center">
-            <div className="text-center text-gray-500">
+          <div className="border-2 border-dashed border-border rounded-lg p-6 flex items-center justify-center bg-card">
+            <div className="text-center text-muted-foreground">
               <div className="text-sm font-medium">Additional metric</div>
               <div className="text-xs mt-1">Coming soon</div>
             </div>

@@ -31,43 +31,43 @@ export function BookOfBusinessGMVCard({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
+        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <Building2 className="w-5 h-5 text-[#008060]" />
           Book of Business
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-1">Merchant health & portfolio</p>
+        <p className="text-xs text-muted-foreground mt-1">Merchant health & portfolio</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Merchant Count Section */}
         <div>
-          <div className="text-2xl font-bold">{totalMerchants} Merchants</div>
+          <div className="text-2xl font-bold text-foreground">{totalMerchants} Merchants</div>
           <div className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">High Risk:</span>
-              <span className="font-medium text-red-600">{highRisk}</span>
+              <span className="text-muted-foreground">High Risk:</span>
+              <span className="font-medium text-red-400">{highRisk}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Medium Risk:</span>
-              <span className="font-medium text-yellow-600">{mediumRisk}</span>
+              <span className="text-muted-foreground">Medium Risk:</span>
+              <span className="font-medium text-yellow-400">{mediumRisk}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Low Risk:</span>
-              <span className="font-medium text-green-600">{lowRisk}</span>
+              <span className="text-muted-foreground">Low Risk:</span>
+              <span className="font-medium text-green-400">{lowRisk}</span>
             </div>
             {noRiskProfile > 0 && (
               <div className="flex justify-between">
-                <span className="text-red-500 font-medium">{noRiskProfile} without risk profile</span>
+                <span className="text-red-400 font-medium">{noRiskProfile} without risk profile</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Divider */}
-        <div className="border-t" />
+        <div className="border-t border-border" />
 
         {/* GMV Section */}
         <div>
-          <div className="text-sm text-gray-600 mb-1">Portfolio GMV</div>
+          <div className="text-sm text-muted-foreground mb-1">Portfolio GMV</div>
           <div className="text-xl font-bold text-[#008060]">{formatGMV(totalGMV)}</div>
         </div>
       </CardContent>

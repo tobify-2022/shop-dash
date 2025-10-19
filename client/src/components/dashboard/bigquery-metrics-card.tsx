@@ -155,34 +155,34 @@ export function BigQueryMetricsCard({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
+        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <IconComponent className="w-5 h-5 text-[#008060]" />
           {title}
         </CardTitle>
-        {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="text-sm text-gray-500">Loading...</div>
+          <div className="text-sm text-muted-foreground">Loading...</div>
         ) : error ? (
-          <div className="text-sm text-red-500">Error: {error}</div>
+          <div className="text-sm text-destructive">Error: {error}</div>
         ) : metrics ? (
           <div className="space-y-2">
-            <div className="text-2xl font-bold">
-              {formatCurrency(metrics.current)} <span className="text-gray-400">of</span> {formatCurrency(metrics.target)}
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(metrics.current)} <span className="text-muted-foreground">of</span> {formatCurrency(metrics.target)}
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#008060] transition-all"
                   style={{ width: `${Math.min(metrics.attainmentPercentage, 100)}%` }}
                 />
               </div>
-              <span className="text-sm font-medium">{metrics.attainmentPercentage}%</span>
+              <span className="text-sm font-medium text-foreground">{metrics.attainmentPercentage}%</span>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">No data available</div>
+          <div className="text-sm text-muted-foreground">No data available</div>
         )}
       </CardContent>
     </Card>

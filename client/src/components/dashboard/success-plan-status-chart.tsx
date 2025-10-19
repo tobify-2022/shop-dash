@@ -34,7 +34,7 @@ export function SuccessPlanStatusChart({ msmName: _msmName }: SuccessPlanStatusC
           <ClipboardList className="w-5 h-5 text-[#008060]" />
           Success Plan Status
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-1">Strategic vision tracking</p>
+        <p className="text-xs text-muted-foreground mt-1">Strategic vision tracking</p>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="visions">

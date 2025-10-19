@@ -9,8 +9,34 @@ declare global {
       auth: {
         requestScopes(scopes: string[]): Promise<{ success: boolean }>;
       };
+      dw: {
+        querySync(query: string): Promise<any>;
+      };
     };
   }
+}
+
+/**
+ * Check if we're in the Quick environment
+ */
+export function isQuickEnvironment(): boolean {
+  return typeof window !== 'undefined' && 
+         window.quick !== undefined && 
+         window.quick.dw !== undefined;
+}
+
+/**
+ * Wait for Quick to be available
+ */
+export async function waitForQuick(timeout: number = 5000): Promise<boolean> {
+  const startTime = Date.now();
+  while (!isQuickEnvironment()) {
+    if (Date.now() - startTime > timeout) {
+      return false;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return true;
 }
 
 interface BigQueryRow {

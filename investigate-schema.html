@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BigQuery Schema Investigation</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        pre { background: #2d2d2d; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        button { 
+            background: #008060; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            cursor: pointer; 
+            border-radius: 5px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #006d4e; }
+        .section { margin: 20px 0; }
+        h2 { color: #4ec9b0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 BigQuery Table Investigation</h1>
+    <p>Investigating: <code>shopify-dw.mart_revenue_data.revenue_account_product_adoption_summary</code></p>
+    
+    <div class="section">
+        <button onclick="investigateSchema()">1. Get Table Schema</button>
+        <button onclick="getSampleData()">2. Get Sample Data</button>
+        <button onclick="checkTemporalFields()">3. Check for Temporal Fields</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+
+        async function queryBigQuery(query, title) {
+            try {
+                resultsDiv.innerHTML += `<h2>${title}</h2><p>Executing query...</p>`;
+                
+                // Request BigQuery permissions
+                const authResult = await window.quick.auth.requestScopes([
+                    'https://www.googleapis.com/auth/bigquery'
+                ]);
+
+                if (!authResult.success) {
+                    throw new Error('Failed to authenticate with BigQuery');
+                }
+
+                // Execute query
+                const response = await fetch('/api/bigquery', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query }),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`BigQuery error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                resultsDiv.innerHTML += `<pre>${JSON.stringify(data.rows, null, 2)}</pre>`;
+                return data;
+            } catch (error) {
+                resultsDiv.innerHTML += `<pre style="color: #f48771;">Error: ${error.message}</pre>`;
+                console.error(error);
+            }
+        }
+
+        async function investigateSchema() {
+            const query = `
+                SELECT 
+                  column_name,
+                  data_type,
+                  is_nullable
+                FROM \`shopify-dw.mart_revenue_data.INFORMATION_SCHEMA.COLUMNS\`
+                WHERE table_name = 'revenue_account_product_adoption_summary'
+                ORDER BY ordinal_position
+            `;
+            await queryBigQuery(query, '📋 Table Schema');
+        }
+
+        async function getSampleData() {
+            const query = `
+                SELECT *
+                FROM \`shopify-dw.mart_revenue_data.revenue_account_product_adoption_summary\`
+                LIMIT 2
+            `;
+            await queryBigQuery(query, '📊 Sample Data (2 rows)');
+        }
+
+        async function checkTemporalFields() {
+            const query = `
+                SELECT 
+                  column_name,
+                  data_type
+                FROM \`shopify-dw.mart_revenue_data.INFORMATION_SCHEMA.COLUMNS\`
+                WHERE table_name = 'revenue_account_product_adoption_summary'
+                  AND (
+                    LOWER(column_name) LIKE '%date%' OR
+                    LOWER(column_name) LIKE '%time%' OR
+                    LOWER(column_name) LIKE '%timestamp%' OR
+                    LOWER(column_name) LIKE '%updated%' OR
+                    LOWER(column_name) LIKE '%created%' OR
+                    LOWER(column_name) LIKE '%activated%' OR
+                    LOWER(column_name) LIKE '%churned%' OR
+                    LOWER(column_name) LIKE '%deactivated%'
+                  )
+                ORDER BY ordinal_position
+            `;
+            await queryBigQuery(query, '⏰ Temporal/Date Fields');
+        }
+    </script>
+</body>
+</html>
+

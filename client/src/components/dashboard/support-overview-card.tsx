@@ -57,11 +57,11 @@ export function SupportOverviewCard({ msmName }: SupportOverviewCardProps) {
           <LifeBuoy className="w-5 h-5 text-[#008060]" />
           Support Overview
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-1">Recent tickets & sentiment</p>
+        <p className="text-xs text-muted-foreground mt-1">Recent tickets & sentiment</p>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="text-sm text-gray-500">Loading...</div>
+          <div className="text-sm text-muted-foreground">Loading...</div>
         ) : summary ? (
           <div className="space-y-3">
             {/* Open Tickets - Clickable */}
@@ -72,13 +72,13 @@ export function SupportOverviewCard({ msmName }: SupportOverviewCardProps) {
                 <div>
                   <div className="font-semibold mb-2">Open Tickets</div>
                   {openTickets.length === 0 ? (
-                    <div className="text-sm text-gray-500">No open tickets</div>
+                    <div className="text-sm text-muted-foreground">No open tickets</div>
                   ) : (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {openTickets.slice(0, 10).map((ticket) => (
                         <div key={ticket.ticket_id} className="text-sm border-b pb-2">
                           <div className="font-medium">{ticket.merchant_name}</div>
-                          <div className="text-xs text-gray-600">{ticket.category}</div>
+                          <div className="text-xs text-muted-foreground">{ticket.category}</div>
                           <a
                             href={ticket.zendesk_url}
                             target="_blank"
@@ -95,7 +95,7 @@ export function SupportOverviewCard({ msmName }: SupportOverviewCardProps) {
               }
             >
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition-colors">
-                <div className="text-sm text-gray-600">Open Tickets</div>
+                <div className="text-sm text-muted-foreground">Open Tickets</div>
                 <div className="text-2xl font-bold text-blue-600">{summary.openTickets}</div>
               </div>
             </Popover>
@@ -108,13 +108,13 @@ export function SupportOverviewCard({ msmName }: SupportOverviewCardProps) {
                 <div>
                   <div className="font-semibold mb-2">Active Escalations</div>
                   {escalatedTickets.length === 0 ? (
-                    <div className="text-sm text-gray-500">No escalations</div>
+                    <div className="text-sm text-muted-foreground">No escalations</div>
                   ) : (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {escalatedTickets.slice(0, 10).map((ticket) => (
                         <div key={ticket.ticket_id} className="text-sm border-b pb-2">
                           <div className="font-medium">{ticket.merchant_name}</div>
-                          <div className="text-xs text-gray-600">{ticket.category}</div>
+                          <div className="text-xs text-muted-foreground">{ticket.category}</div>
                           <a
                             href={ticket.zendesk_url}
                             target="_blank"
@@ -131,21 +131,21 @@ export function SupportOverviewCard({ msmName }: SupportOverviewCardProps) {
               }
             >
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 cursor-pointer hover:bg-orange-100 transition-colors">
-                <div className="text-sm text-gray-600">Active Escalations</div>
+                <div className="text-sm text-muted-foreground">Active Escalations</div>
                 <div className="text-2xl font-bold text-orange-600">{summary.activeEscalations}</div>
               </div>
             </Popover>
 
             {/* Average Sentiment */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-sm text-gray-600">Avg. Sentiment</div>
+            <div className="bg-muted border border-border rounded-lg p-3">
+              <div className="text-sm text-muted-foreground">Avg. Sentiment</div>
               <div className={`text-2xl font-bold ${getSentimentColor(summary.avgSentiment)}`}>
                 {getSentimentLabel(summary.avgSentiment)}
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">No data available</div>
+          <div className="text-sm text-muted-foreground">No data available</div>
         )}
       </CardContent>
     </Card>

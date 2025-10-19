@@ -56,7 +56,7 @@ export function EngagementPriorityHelper({ className }: EngagementPriorityHelper
           <Users className="w-5 h-5 text-[#008060]" />
           Engagement Priority Helper
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-1">Last engagement tracking</p>
+        <p className="text-xs text-muted-foreground mt-1">Last engagement tracking</p>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -89,7 +89,7 @@ export function EngagementPriorityHelper({ className }: EngagementPriorityHelper
                     {data.map((merchant, idx) => (
                       <div key={idx} className="text-xs">
                         <div className="font-medium">{merchant.name}</div>
-                        <div className="text-gray-600">{merchant.days} days ago</div>
+                        <div className="text-muted-foreground">{merchant.days} days ago</div>
                       </div>
                     ))}
                   </div>

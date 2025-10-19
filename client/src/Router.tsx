@@ -4,10 +4,10 @@ import Home from './pages/Home';
 
 // Placeholder pages for navigation
 const PlaceholderPage = ({ title }: { title: string }) => (
-  <div className="flex items-center justify-center h-full">
+  <div className="flex items-center justify-center h-full bg-background">
     <div className="text-center">
-      <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-      <p className="text-gray-600 mt-2">Coming soon...</p>
+      <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+      <p className="text-muted-foreground mt-2">Coming soon...</p>
     </div>
   </div>
 );
