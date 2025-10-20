@@ -1,31 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { AlertCircle, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertCircle, TrendingUp, ChevronDown, ChevronUp, ExternalLink, Calendar } from 'lucide-react';
 import SalesforceOpportunitiesService, { type SalesforceOpportunity } from '@/lib/salesforce-opportunities-service';
 
 interface OpportunitiesRollupProps {
   msmName?: string;
 }
 
-// Color scheme for opportunity statuses
-const COLORS = {
-  open: '#008060',        // Shopify green
-  closedWon: '#4CAF50',   // Success green
-  closedLost: '#DC2626',  // Red
-};
-
-interface StatusData {
-  name: string;
-  value: number;
-  color: string;
-  percentage: number;
-}
-
 export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
-  const [viewMode, setViewMode] = useState<'count' | 'value'>('count');
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   // Fetch opportunities using React Query
@@ -41,97 +24,41 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
     retry: false,
   });
 
-  // Calculate status breakdown by count
-  const calculateCountData = (): StatusData[] => {
-    try {
-      if (!Array.isArray(opportunities) || opportunities.length === 0) {
-        return [];
-      }
-
-      const open = opportunities.filter(o => !o.is_closed).length;
-      const closedWon = opportunities.filter(o => o.is_closed && o.is_won).length;
-      const closedLost = opportunities.filter(o => o.is_closed && !o.is_won).length;
-      const total = open + closedWon + closedLost;
-
-      if (total === 0) return [];
-
-      return [
-        {
-          name: 'Open',
-          value: open,
-          color: COLORS.open,
-          percentage: (open / total) * 100,
-        },
-        {
-          name: 'Closed Won',
-          value: closedWon,
-          color: COLORS.closedWon,
-          percentage: (closedWon / total) * 100,
-        },
-        {
-          name: 'Closed Lost',
-          value: closedLost,
-          color: COLORS.closedLost,
-          percentage: (closedLost / total) * 100,
-        },
-      ].filter(item => item.value > 0);
-    } catch (err) {
-      console.error('Error calculating count data:', err);
-      return [];
+  // Get stage color based on stage name
+  const getStageColor = (stageName: string): { bg: string; text: string } => {
+    const stage = stageName.toLowerCase();
+    
+    // Early stages - Blue
+    if (stage.includes('prospect') || stage.includes('qualify') || stage.includes('pre-qual')) {
+      return { bg: 'bg-blue-100', text: 'text-blue-700' };
     }
+    
+    // Middle stages - Yellow/Orange
+    if (stage.includes('solution') || stage.includes('value') || stage.includes('demo')) {
+      return { bg: 'bg-yellow-100', text: 'text-yellow-700' };
+    }
+    
+    // Advanced stages - Purple
+    if (stage.includes('negotiat') || stage.includes('proposal') || stage.includes('contract') || stage.includes('commit')) {
+      return { bg: 'bg-purple-100', text: 'text-purple-700' };
+    }
+    
+    // Won - Green
+    if (stage.includes('won') || stage.includes('closed won')) {
+      return { bg: 'bg-green-100', text: 'text-green-700' };
+    }
+    
+    // Lost - Red
+    if (stage.includes('lost') || stage.includes('closed lost')) {
+      return { bg: 'bg-red-100', text: 'text-red-700' };
+    }
+    
+    // Default - Gray
+    return { bg: 'bg-gray-100', text: 'text-gray-700' };
   };
 
-  // Calculate status breakdown by value
-  const calculateValueData = (): StatusData[] => {
-    try {
-      if (!Array.isArray(opportunities) || opportunities.length === 0) {
-        return [];
-      }
-
-      const openValue = opportunities
-        .filter(o => !o.is_closed)
-        .reduce((sum, o) => sum + (o.amount || 0), 0);
-      
-      const closedWonValue = opportunities
-        .filter(o => o.is_closed && o.is_won)
-        .reduce((sum, o) => sum + (o.amount || 0), 0);
-      
-      const closedLostValue = opportunities
-        .filter(o => o.is_closed && !o.is_won)
-        .reduce((sum, o) => sum + (o.amount || 0), 0);
-      
-      const totalValue = openValue + closedWonValue + closedLostValue;
-
-      if (totalValue === 0) return [];
-
-      return [
-        {
-          name: 'Open',
-          value: openValue,
-          color: COLORS.open,
-          percentage: (openValue / totalValue) * 100,
-        },
-        {
-          name: 'Closed Won',
-          value: closedWonValue,
-          color: COLORS.closedWon,
-          percentage: (closedWonValue / totalValue) * 100,
-        },
-        {
-          name: 'Closed Lost',
-          value: closedLostValue,
-          color: COLORS.closedLost,
-          percentage: (closedLostValue / totalValue) * 100,
-        },
-      ].filter(item => item.value > 0);
-    } catch (err) {
-      console.error('Error calculating value data:', err);
-      return [];
-    }
-  };
-
-  // Get top 3 open opportunities by amount
-  const getTopOpportunities = (): SalesforceOpportunity[] => {
+  // Get all open opportunities sorted by amount (highest first)
+  const getOpenOpportunities = (): SalesforceOpportunity[] => {
     try {
       if (!Array.isArray(opportunities) || opportunities.length === 0) {
         return [];
@@ -139,10 +66,9 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
 
       return opportunities
         .filter(o => !o.is_closed)
-        .sort((a, b) => (b.amount || 0) - (a.amount || 0))
-        .slice(0, 3);
+        .sort((a, b) => (b.amount || 0) - (a.amount || 0));
     } catch (err) {
-      console.error('Error getting top opportunities:', err);
+      console.error('Error getting open opportunities:', err);
       return [];
     }
   };
@@ -162,16 +88,50 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
     }
   };
 
-  // Truncate text
-  const truncate = (text: string, maxLength: number): string => {
-    if (!text) return '';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  // Format close date
+  const formatCloseDate = (dateStr: string): string => {
+    if (!dateStr) return 'No date';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = date.getTime() - now.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      // Past dates
+      if (diffDays < 0) {
+        const absDays = Math.abs(diffDays);
+        if (absDays === 0) return 'Today';
+        if (absDays === 1) return 'Yesterday';
+        if (absDays < 7) return `${absDays} days ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      
+      // Future dates
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Tomorrow';
+      if (diffDays < 7) return `In ${diffDays} days`;
+      if (diffDays < 30) {
+        const weeks = Math.floor(diffDays / 7);
+        return weeks === 1 ? 'In 1 week' : `In ${weeks} weeks`;
+      }
+      if (diffDays < 365) {
+        const months = Math.floor(diffDays / 30);
+        return months === 1 ? 'In 1 month' : `In ${months} months`;
+      }
+      
+      // Far future - show actual date
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
   };
 
-  const countData = calculateCountData();
-  const valueData = calculateValueData();
-  const chartData = viewMode === 'count' ? countData : valueData;
-  const topOpportunities = getTopOpportunities();
+  // Generate Salesforce opportunity URL
+  const getSalesforceUrl = (opportunityId: string): string => {
+    return `https://banff.lightning.force.com/lightning/r/Opportunity/${opportunityId}/view`;
+  };
+
+  const openOpportunities = getOpenOpportunities();
 
   // Loading state
   if (isLoading) {
@@ -257,115 +217,69 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
           <TrendingUp className="w-5 h-5 text-[#008060]" />
           Opportunities
         </CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">Status breakdown</p>
+        <p className="text-xs text-muted-foreground mt-1">Open opportunities in your book</p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* View Mode Tabs */}
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'count' | 'value')}>
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="count">By Count</TabsTrigger>
-            <TabsTrigger value="value">By Value</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        {/* Pie Chart */}
-        {chartData.length > 0 ? (
-          <>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(entry) => `${entry.percentage.toFixed(0)}%`}
-                  outerRadius={70}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => 
-                    viewMode === 'count' ? value : formatCurrency(value)
-                  }
-                />
-              </PieChart>
-            </ResponsiveContainer>
-
-            {/* Legend */}
-            <div className="space-y-2">
-              {chartData.map((item, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <span className="text-foreground">{item.name}</span>
+      <CardContent className="flex flex-col space-y-3">
+        {/* Open Opportunities List - Show ~3 opportunities (max-h-64) with scroll */}
+        {openOpportunities.length > 0 ? (
+          <div className="overflow-y-auto space-y-2 pr-1 max-h-64">
+            {openOpportunities.map((opp) => (
+              <a
+                  key={opp.opportunity_id}
+                href={getSalesforceUrl(opp.opportunity_id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block bg-muted rounded-lg p-2.5 hover:bg-muted/70 transition-all hover:shadow-md group"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-foreground truncate group-hover:text-[#008060] transition-colors">
+                        {opp.opportunity_name}
+                      </p>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-[#008060] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {opp.account_name}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">
-                      {viewMode === 'count' ? item.value : formatCurrency(item.value)}
-                    </span>
-                    <span className="text-muted-foreground text-xs">
-                      ({item.percentage.toFixed(1)}%)
-                    </span>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-semibold text-[#008060]">
+                      {formatCurrency(opp.amount)}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <p className="text-sm">No data available</p>
-          </div>
-        )}
-
-        {/* Top 3 Open Opportunities */}
-        {topOpportunities.length > 0 && (
-          <div className="border-t pt-4 mt-4">
-            <h4 className="text-sm font-semibold text-foreground mb-3">
-              Top Open Opportunities
-            </h4>
-            <div className="space-y-2">
-              {topOpportunities.map((opp) => (
-                <div
-                  key={opp.opportunity_id}
-                  className="bg-muted rounded-lg p-3 hover:bg-muted/80 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {truncate(opp.opportunity_name, 30)}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {truncate(opp.account_name, 25)}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-semibold text-[#008060]">
-                        {formatCurrency(opp.amount)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-1">
-                    <span className="inline-block text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                
+                <div className="flex items-center justify-between gap-2">
+                  {(() => {
+                    const colors = getStageColor(opp.stage_name);
+                    return (
+                      <span className={`inline-block text-xs px-1.5 py-0.5 ${colors.bg} ${colors.text} rounded font-medium`}>
                       {opp.stage_name}
                     </span>
+                    );
+                  })()}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3" />
+                    <span>Close: {formatCloseDate(opp.close_date)}</span>
                   </div>
                 </div>
-              ))}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center text-muted-foreground py-8">
+            <div className="text-center">
+              <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No open opportunities</p>
             </div>
           </div>
         )}
 
         {/* Total Count Footer */}
-        <div className="border-t pt-3 mt-3">
-          <p className="text-sm text-muted-foreground text-center">
-            Total Opportunities: <span className="font-semibold text-foreground">{opportunities.length}</span>
+        <div className="border-t pt-3 text-center">
+          <p className="text-xs text-muted-foreground">
+            Total: <span className="font-semibold text-foreground">{opportunities?.length || 0}</span> opportunities
           </p>
         </div>
       </CardContent>

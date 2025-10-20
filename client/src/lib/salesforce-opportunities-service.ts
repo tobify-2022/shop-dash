@@ -1,4 +1,4 @@
-import { isQuickEnvironment, waitForQuick } from './quick-api';
+import { quickAPI } from './quick-api';
 
 export interface SalesforceOpportunity {
   opportunity_id: string;
@@ -18,109 +18,6 @@ export interface SalesforceOpportunity {
   is_won: boolean;
   days_to_close: number;
   age_days: number;
-}
-
-/**
- * Mock data for development/fallback
- */
-function getMockOpportunities(): SalesforceOpportunity[] {
-  return [
-    {
-      opportunity_id: 'mock-001',
-      opportunity_name: 'Shopify Plus Upgrade - Acme Corp',
-      account_id: 'mock-acc-001',
-      account_name: 'Acme Corporation',
-      stage_name: 'Proposal/Price Quote',
-      amount: 250000,
-      close_date: '2024-12-15',
-      probability: 75,
-      owner_name: 'Jane Smith',
-      owner_id: 'user-001',
-      type: 'New Deal',
-      created_date: '2024-09-01',
-      last_modified_date: '2024-10-15',
-      is_closed: false,
-      is_won: false,
-      days_to_close: 45,
-      age_days: 45,
-    },
-    {
-      opportunity_id: 'mock-002',
-      opportunity_name: 'POS Pro Implementation - RetailCo',
-      account_id: 'mock-acc-002',
-      account_name: 'RetailCo Inc',
-      stage_name: 'Closed Won',
-      amount: 180000,
-      close_date: '2024-09-30',
-      probability: 100,
-      owner_name: 'John Doe',
-      owner_id: 'user-002',
-      type: 'Upsell',
-      created_date: '2024-08-15',
-      last_modified_date: '2024-09-30',
-      is_closed: true,
-      is_won: true,
-      days_to_close: 46,
-      age_days: 65,
-    },
-    {
-      opportunity_id: 'mock-003',
-      opportunity_name: 'B2B Solution - WholesaleCo',
-      account_id: 'mock-acc-003',
-      account_name: 'WholesaleCo Ltd',
-      stage_name: 'Closed Lost',
-      amount: 120000,
-      close_date: '2024-08-20',
-      probability: 0,
-      owner_name: 'Jane Smith',
-      owner_id: 'user-001',
-      type: 'New Deal',
-      created_date: '2024-06-10',
-      last_modified_date: '2024-08-20',
-      is_closed: true,
-      is_won: false,
-      days_to_close: 71,
-      age_days: 131,
-    },
-    {
-      opportunity_id: 'mock-004',
-      opportunity_name: 'Shopify Markets Expansion - GlobalShop',
-      account_id: 'mock-acc-004',
-      account_name: 'GlobalShop International',
-      stage_name: 'Prospecting',
-      amount: 350000,
-      close_date: '2025-01-30',
-      probability: 40,
-      owner_name: 'John Doe',
-      owner_id: 'user-002',
-      type: 'New Deal',
-      created_date: '2024-10-01',
-      last_modified_date: '2024-10-18',
-      is_closed: false,
-      is_won: false,
-      days_to_close: 103,
-      age_days: 18,
-    },
-    {
-      opportunity_id: 'mock-005',
-      opportunity_name: 'Annual Renewal - FashionBrand',
-      account_id: 'mock-acc-005',
-      account_name: 'FashionBrand Co',
-      stage_name: 'Qualification',
-      amount: 95000,
-      close_date: '2024-11-30',
-      probability: 90,
-      owner_name: 'Jane Smith',
-      owner_id: 'user-001',
-      type: 'Renewal',
-      created_date: '2024-09-15',
-      last_modified_date: '2024-10-10',
-      is_closed: false,
-      is_won: false,
-      days_to_close: 42,
-      age_days: 34,
-    },
-  ];
 }
 
 /**
@@ -146,21 +43,6 @@ class SalesforceOpportunitiesService {
     try {
       console.log('🔄 OPPORTUNITIES: Starting fetch for MSM:', userName);
 
-      // Check if Quick is available
-      const quickReady = await waitForQuick(5000);
-      if (!quickReady || !isQuickEnvironment()) {
-        console.warn('⚠️ OPPORTUNITIES: Quick not available, using mock data');
-        return getMockOpportunities();
-      }
-
-      // Request BigQuery permissions
-      try {
-        await window.quick.auth.requestScopes(['https://www.googleapis.com/auth/bigquery']);
-      } catch (authError) {
-        console.error('❌ OPPORTUNITIES: Auth failed:', authError);
-        return getMockOpportunities();
-      }
-
       // Step 1: Get account IDs for this MSM
       const accountsQuery = `
         SELECT 
@@ -173,20 +55,21 @@ class SalesforceOpportunitiesService {
       `;
 
       console.log('🔄 OPPORTUNITIES: Fetching accounts for MSM...');
-      const accountsResult = await window.quick.dw.querySync(accountsQuery);
+      console.log('🔍 OPPORTUNITIES QUERY:', accountsQuery);
+      const accountsResult = await quickAPI.queryBigQuery(accountsQuery);
+      const accounts = accountsResult.rows;
       
-      if (!accountsResult || !Array.isArray(accountsResult) || accountsResult.length === 0) {
-        console.warn('⚠️ OPPORTUNITIES: No accounts found for MSM, using mock data');
-        return getMockOpportunities();
+      if (!accounts || accounts.length === 0) {
+        throw new Error(`No accounts found for MSM: ${userName}`);
       }
 
-      console.log(`✅ OPPORTUNITIES: Found ${accountsResult.length} accounts for MSM`);
+      console.log(`✅ OPPORTUNITIES: Found ${accounts.length} accounts for MSM`);
 
       // Build account map and ID list
       const accountMap = new Map<string, string>();
       const accountIds: string[] = [];
       
-      accountsResult.forEach((acc: any) => {
+      accounts.forEach((acc: any) => {
         const accountId = String(acc.account_id || '');
         const accountName = String(acc.account_name || 'Unknown');
         if (accountId) {
@@ -196,15 +79,14 @@ class SalesforceOpportunitiesService {
       });
 
       if (accountIds.length === 0) {
-        console.warn('⚠️ OPPORTUNITIES: No valid account IDs, using mock data');
-        return getMockOpportunities();
+        throw new Error('No valid account IDs found');
       }
 
       // Step 2: Get opportunities for these accounts
       const opportunitiesQuery = `
         SELECT 
           opportunity_id,
-          opportunity_name,
+          name as opportunity_name,
           account_id,
           stage_name,
           COALESCE(amount_usd, 0) as amount,
@@ -223,17 +105,18 @@ class SalesforceOpportunitiesService {
       `;
 
       console.log('🔄 OPPORTUNITIES: Fetching opportunities...');
-      const oppsResult = await window.quick.dw.querySync(opportunitiesQuery);
+      const oppsResult = await quickAPI.queryBigQuery(opportunitiesQuery);
+      const opps = oppsResult.rows;
 
-      if (!oppsResult || !Array.isArray(oppsResult)) {
-        console.warn('⚠️ OPPORTUNITIES: No opportunities found, using mock data');
-        return getMockOpportunities();
+      if (!opps || opps.length === 0) {
+        console.warn('⚠️ OPPORTUNITIES: No opportunities found');
+        return [];
       }
 
-      console.log(`✅ OPPORTUNITIES: Found ${oppsResult.length} opportunities`);
+      console.log(`✅ OPPORTUNITIES: Found ${opps.length} opportunities`);
 
       // Map BigQuery results to our interface
-      const opportunities: SalesforceOpportunity[] = oppsResult.map((opp: any) => {
+      const opportunities: SalesforceOpportunity[] = opps.map((opp: any) => {
         const accountId = String(opp.account_id || '');
         const accountName = accountMap.get(accountId) || 'Unknown';
         const createdDate = this.parseDate(opp.created_at);
@@ -270,8 +153,7 @@ class SalesforceOpportunitiesService {
 
     } catch (error) {
       console.error('❌ OPPORTUNITIES: Error fetching opportunities:', error);
-      console.log('🔄 OPPORTUNITIES: Falling back to mock data');
-      return getMockOpportunities();
+      throw error; // Don't use mock data - let the error bubble up
     }
   }
 

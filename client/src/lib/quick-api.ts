@@ -6,11 +6,23 @@
 declare global {
   interface Window {
     quick: {
+      id: {
+        waitForUser(): Promise<{
+          email: string;
+          name: string;
+          slackProfile?: string;
+          title?: string;
+          githubHandle?: string;
+        }>;
+      };
       auth: {
-        requestScopes(scopes: string[]): Promise<{ success: boolean }>;
+        requestScopes(scopes: string[]): Promise<{ hasRequiredScopes: boolean }>;
       };
       dw: {
-        querySync(query: string): Promise<any>;
+        querySync(query: string, params?: any[], options?: {
+          timeoutMs?: number;
+          maxResults?: number;
+        }): Promise<any>;
       };
     };
   }
@@ -22,6 +34,7 @@ declare global {
 export function isQuickEnvironment(): boolean {
   return typeof window !== 'undefined' && 
          window.quick !== undefined && 
+         window.quick.id !== undefined &&
          window.quick.dw !== undefined;
 }
 
@@ -49,35 +62,50 @@ interface BigQueryResult {
 
 export const quickAPI = {
   /**
-   * Query BigQuery with proper authentication
+   * Query BigQuery using Quick's built-in data warehouse service
+   * NOTE: Auth must be handled by BigQueryAuthProvider before calling this
    */
   async queryBigQuery(query: string): Promise<BigQueryResult> {
     try {
-      // Request BigQuery permissions first
-      const authResult = await window.quick.auth.requestScopes([
-        'https://www.googleapis.com/auth/bigquery'
-      ]);
-
-      if (!authResult.success) {
-        throw new Error('Failed to authenticate with BigQuery');
+      // Check if Quick environment is available
+      if (!isQuickEnvironment()) {
+        throw new Error('Quick environment not available');
       }
 
-      // Execute query via Quick backend
-      const response = await fetch('/api/bigquery', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query }),
+      console.log('📊 Executing BigQuery query...');
+      console.log('📝 Query:', query.substring(0, 100) + '...');
+
+      // Execute query via Quick's data warehouse service
+      // Auth should already be handled by BigQueryAuthProvider
+      const result = await window.quick.dw.querySync(query, [], {
+        timeoutMs: 60000,
+        maxResults: 10000
       });
+      
+      console.log('✅ Query executed successfully:', result);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`BigQuery error: ${response.status} - ${errorText}`);
+      // Quick's querySync returns an array directly
+      if (!result) {
+        return { rows: [] };
       }
 
-      const data = await response.json();
-      return data;
+      // If result is already an array, wrap it
+      if (Array.isArray(result)) {
+        return { rows: result };
+      }
+
+      // Quick API returns { results: [...] } not { rows: [...] }
+      if (typeof result === 'object' && 'results' in result) {
+        return { rows: (result as any).results };
+      }
+
+      // If result has rows property, return as is
+      if (typeof result === 'object' && 'rows' in result) {
+        return result as BigQueryResult;
+      }
+
+      // Otherwise, wrap the result as a single row
+      return { rows: [result] };
     } catch (error) {
       console.error('BigQuery query failed:', error);
       throw error;

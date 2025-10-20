@@ -1,0 +1,27 @@
+{
+  "name": "god-mode",
+  "short_name": "MSM Dashboard",
+  "description": "Merchant Success Manager Dashboard with BigQuery integration",
+  "version": "1.0.0",
+  "apis": {
+    "identity": true,
+    "dataWarehouse": true
+  },
+  "scopes": [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/bigquery",
+    "https://www.googleapis.com/auth/cloud-platform"
+  ],
+  "bigquery": {
+    "project": "shopify-dw",
+    "datasets": [
+      "shopify-dw.sales",
+      "shopify-dw.mart_revenue_data",
+      "shopify-dw.base",
+      "shopify-dw.support",
+      "sdp-for-analysts-platform.rev_ops_prod"
+    ]
+  }
+}
+

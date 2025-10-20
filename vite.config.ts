@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   root: 'client',
+  publicDir: 'public', // Ensures files from client/public are copied to dist/public
   build: {
     outDir: '../dist/public',
     emptyOutDir: true,

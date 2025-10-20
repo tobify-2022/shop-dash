@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useIdentity } from '@/contexts/identity-context';
+import { useBigQueryAuth } from '@/contexts/bigquery-auth-context';
 import { useEffectiveMSM } from '@/contexts/msm-context';
-import { BigQueryMetricsCard } from '@/components/dashboard/bigquery-metrics-card';
+import { AttainmentCard } from '@/components/dashboard/attainment-card';
 import { BookOfBusinessGMVCard } from '@/components/dashboard/book-of-business-gmv-card';
 import { ProductAdoptionCard } from '@/components/dashboard/product-adoption-card';
 import { OpportunitiesRollup } from '@/components/dashboard/opportunities-rollup';
@@ -9,35 +10,92 @@ import { SupportOverviewCard } from '@/components/dashboard/support-overview-car
 import { SuccessPlanStatusChart } from '@/components/dashboard/success-plan-status-chart';
 import { EngagementPriorityHelper } from '@/components/dashboard/engagement-priority-helper';
 import { ProductChanges } from '@/components/dashboard/product-changes';
-import { fetchBookOfBusiness, fetchProductAdoptionSignals } from '@/lib/merchant-snapshot-service';
+import { fetchBookOfBusiness, fetchProductAdoptionSignals, fetchProductChanges } from '@/lib/merchant-snapshot-service';
 import { runFullInvestigation } from '@/lib/schema-investigation';
 
 export default function Home() {
   const { user, loading: identityLoading } = useIdentity();
+  const { isAuthenticated: bqAuthenticated, isLoading: bqAuthLoading, error: bqAuthError, needsManualAuth, requestAuth } = useBigQueryAuth();
   const { effectiveMSMName, effectiveMSMEmail } = useEffectiveMSM();
 
   // Fetch Book of Business data
-  const { data: bobData } = useQuery({
+  const { data: bobData, error: bobError, isLoading: bobLoading } = useQuery({
     queryKey: ['book-of-business', effectiveMSMName],
     queryFn: () => fetchBookOfBusiness(effectiveMSMName),
     enabled: !!effectiveMSMName,
     staleTime: 5 * 60 * 1000,
   });
 
+  // Log BOB data for debugging
+  console.log('📊 BOB Data:', bobData);
+  console.log('📊 BOB Error:', bobError);
+  console.log('📊 BOB Loading:', bobLoading);
+
   // Fetch Product Adoption data
   const { data: adoptionSignals } = useQuery({
-    queryKey: ['product-adoption-signals', user?.email],
-    queryFn: () => fetchProductAdoptionSignals(user?.email),
-    enabled: !!user?.email,
+    queryKey: ['product-adoption-signals', effectiveMSMName],
+    queryFn: () => fetchProductAdoptionSignals(effectiveMSMName),
+    enabled: !!effectiveMSMName,
     staleTime: 10 * 60 * 1000,
   });
 
-  if (identityLoading) {
+  // Fetch Product Changes data
+  const { data: productChangesData } = useQuery({
+    queryKey: ['product-changes', effectiveMSMName],
+    queryFn: () => fetchProductChanges(effectiveMSMName),
+    enabled: !!effectiveMSMName,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Show loading state while authenticating
+  if (identityLoading || bqAuthLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading dashboard...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8f5e9]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#008060] mx-auto"></div>
+          <div className="text-lg text-gray-600">
+            {identityLoading ? 'Authenticating with Google...' : 'Requesting BigQuery permissions...'}
+          </div>
+          {bqAuthLoading && (
+            <div className="text-sm text-gray-500">
+              Please approve the OAuth popup if it appears
+            </div>
+          )}
+        </div>
       </div>
     );
+  }
+
+  // Show auth prompt if user needs to grant BigQuery access
+  if (needsManualAuth && !bqAuthenticated && !bqAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8f5e9]">
+        <div className="text-center max-w-md bg-white rounded-lg shadow-lg p-8">
+          <div className="text-6xl mb-4">🔐</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">BigQuery Access Required</h1>
+          <p className="text-gray-600 mb-6">
+            This dashboard needs access to Shopify's BigQuery data warehouse. 
+            Click below to grant access via Google OAuth.
+          </p>
+          
+          <button
+            onClick={requestAuth}
+            className="w-full px-6 py-3 bg-[#008060] text-white rounded-lg hover:bg-[#006d4e] transition-colors font-semibold text-lg"
+          >
+            Grant BigQuery Access
+          </button>
+          
+          <p className="text-sm text-gray-500 mt-4">
+            A Google OAuth popup will appear asking you to approve BigQuery access
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show warning if BigQuery auth failed, but continue with mock data
+  if (bqAuthError && !bqAuthenticated) {
+    console.warn('⚠️ BigQuery authentication failed, using mock data:', bqAuthError);
   }
 
   const totalMerchants = bobData?.totalMerchants || 0;
@@ -53,30 +111,30 @@ export default function Home() {
           adopted: adoptionSignals.filter(a => a.adopted_shop_pay === true).length,
           total: adoptionSignals.length || totalMerchants,
         },
-        b2b: {
-          adopted: adoptionSignals.filter(a => a.adopted_b2b === true).length,
+        shopPayInstallments: {
+          adopted: adoptionSignals.filter(a => a.adopted_shop_pay_installments === true).length,
           total: adoptionSignals.length || totalMerchants,
         },
-        retailPayments: {
-          adopted: adoptionSignals.filter(a => a.adopted_shopify_retail_payments === true).length,
+        b2b: {
+          adopted: adoptionSignals.filter(a => a.adopted_b2b === true).length,
           total: adoptionSignals.length || totalMerchants,
         },
         posPro: {
           adopted: adoptionSignals.filter(a => a.adopted_pos_pro === true).length,
           total: adoptionSignals.length || totalMerchants,
         },
-        shopPayInstallments: {
-          adopted: adoptionSignals.filter(a => a.adopted_shop_pay_installments === true).length,
+        shipping: {
+          adopted: adoptionSignals.filter(a => a.adopted_shipping === true).length,
           total: adoptionSignals.length || totalMerchants,
         },
       }
     : {
         shopifyPayments: { adopted: 0, total: totalMerchants },
         shopPay: { adopted: 0, total: totalMerchants },
-        b2b: { adopted: 0, total: totalMerchants },
-        retailPayments: { adopted: 0, total: totalMerchants },
-        posPro: { adopted: 0, total: totalMerchants },
         shopPayInstallments: { adopted: 0, total: totalMerchants },
+        b2b: { adopted: 0, total: totalMerchants },
+        posPro: { adopted: 0, total: totalMerchants },
+        shipping: { adopted: 0, total: totalMerchants },
       };
 
   return (
@@ -113,28 +171,8 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
-        {/* Row 1: Top KPI Metrics (4 columns) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* NRR Card */}
-          <BigQueryMetricsCard
-            title="NRR"
-            subtitle="Net Revenue Retention"
-            type="nrr"
-            msmName={effectiveMSMName}
-            msmEmail={effectiveMSMEmail}
-            icon="trending"
-          />
-
-          {/* IPP Card */}
-          <BigQueryMetricsCard
-            title="IPP"
-            subtitle="Incremental Product Profit"
-            type="ipp"
-            msmName={effectiveMSMName}
-            msmEmail={effectiveMSMEmail}
-            icon="dollar"
-          />
-
+        {/* Row 1: Top KPI Metrics (3 columns) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Book of Business + Portfolio GMV */}
           {bobData && (
             <BookOfBusinessGMVCard
@@ -146,6 +184,12 @@ export default function Home() {
               totalGMV={bobData.totalGMV}
             />
           )}
+
+          {/* Attainment Card (NRR + IPP Combined) */}
+          <AttainmentCard
+            msmName={effectiveMSMName}
+            msmEmail={effectiveMSMEmail}
+          />
 
           {/* Placeholder Card */}
           <div className="border-2 border-dashed border-border rounded-lg p-6 flex items-center justify-center bg-card">
@@ -180,11 +224,15 @@ export default function Home() {
 
           {/* Product Changes (2/5 = 40%) */}
           <div className="xl:col-span-2">
-            <ProductChanges />
+            <ProductChanges 
+              activations={productChangesData?.activations || []}
+              deactivations={productChangesData?.deactivations || []}
+            />
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 

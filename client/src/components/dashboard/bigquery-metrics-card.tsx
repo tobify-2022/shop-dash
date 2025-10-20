@@ -33,6 +33,7 @@ export function BigQueryMetricsCard({
   useEffect(() => {
     async function fetchMetrics() {
       if (!msmName && !msmEmail) {
+        console.log(`${type.toUpperCase()}: No MSM name or email provided`);
         setLoading(false);
         return;
       }
@@ -41,18 +42,13 @@ export function BigQueryMetricsCard({
         setLoading(true);
         setError(null);
 
-        // Request BigQuery permissions
-        const authResult = await window.quick.auth.requestScopes([
-          'https://www.googleapis.com/auth/bigquery'
-        ]);
-
-        if (!authResult.success) {
-          throw new Error('Failed to authenticate with BigQuery');
-        }
-
+        // Quick handles authentication automatically
         const { quickAPI } = await import('@/lib/quick-api');
         const currentQuarter = getCurrentQuarter();
         const quarterStartDate = getQuarterStartDate(currentQuarter);
+        
+        console.log(`${type.toUpperCase()}: Fetching metrics for ${msmEmail || msmName}`);
+        console.log(`${type.toUpperCase()}: Quarter: Q${currentQuarter.quarter} ${currentQuarter.year}, Start Date: ${quarterStartDate}`);
 
         let query: string;
 
@@ -72,6 +68,8 @@ export function BigQueryMetricsCard({
 
           const result = await quickAPI.queryBigQuery(query);
           const accounts = result.rows;
+          
+          console.log(`NRR: Received ${accounts.length} account rows`);
 
           // Calculate NRR metrics (CRITICAL: use quarterlyQuota, not totalQuota)
           const merchantRevenue = new Map<string, number>();
@@ -92,6 +90,12 @@ export function BigQueryMetricsCard({
           const quarterlyQuota = quotaPerMerchantPerMonth * uniqueMerchantCount * 3;
           const totalRevenue = Array.from(merchantRevenue.values()).reduce((sum, rev) => sum + rev, 0);
 
+          console.log(`NRR: Unique Merchants: ${uniqueMerchantCount}`);
+          console.log(`NRR: Quota/Merchant/Month: $${quotaPerMerchantPerMonth.toFixed(2)}`);
+          console.log(`NRR: Quarterly Quota: $${quarterlyQuota.toFixed(2)}`);
+          console.log(`NRR: Total Revenue: $${totalRevenue.toFixed(2)}`);
+          console.log(`NRR: Attainment: ${quarterlyQuota > 0 ? Math.round((totalRevenue / quarterlyQuota) * 100) : 0}%`);
+
           setMetrics({
             current: totalRevenue,
             target: quarterlyQuota,
@@ -99,33 +103,35 @@ export function BigQueryMetricsCard({
           });
 
         } else if (type === 'ipp') {
-          // IPP Query
-          const searchTerm = msmName?.toLowerCase().replace(' ', '%') || 'dugald%todd';
+          // IPP Query - Using correct field names from schema
           query = `
             SELECT 
-              current_ipp,
-              target_ipp,
-              attainment_percentage
+              cw_ipp,
+              quarterly_quota,
+              ipp_attainment
             FROM \`sdp-for-analysts-platform.rev_ops_prod.report_post_sales_dashboard_ipp_by_csm\`
-            WHERE LOWER(merchant_success_manager) LIKE '%${searchTerm}%'
+            WHERE msm_email = '${msmEmail || 'dugald.todd@shopify.com'}'
               AND quarter = '${quarterStartDate}'
             LIMIT 1
           `;
 
           const result = await quickAPI.queryBigQuery(query);
+          console.log(`IPP: Received ${result.rows.length} rows`);
+          
           if (result.rows.length > 0) {
             const row = result.rows[0];
+            console.log(`IPP: CW IPP: $${parseFloat(row.cw_ipp || 0).toFixed(2)}`);
+            console.log(`IPP: Quarterly Quota: $${parseFloat(row.quarterly_quota || 0).toFixed(2)}`);
+            console.log(`IPP: Attainment: ${(parseFloat(row.ipp_attainment || 0) * 100).toFixed(2)}%`);
+            
             setMetrics({
-              current: parseFloat(row.current_ipp || 0),
-              target: parseFloat(row.target_ipp || 0),
-              attainmentPercentage: parseFloat(row.attainment_percentage || 0)
+              current: parseFloat(row.cw_ipp || 0),
+              target: parseFloat(row.quarterly_quota || 0),
+              attainmentPercentage: parseFloat(row.ipp_attainment || 0) * 100 // Convert to percentage
             });
           } else {
-            setMetrics({
-              current: 0,
-              target: 0,
-              attainmentPercentage: 0
-            });
+            console.error('IPP: No data found for this MSM and quarter');
+            throw new Error('No IPP data found for this MSM and quarter');
           }
         }
 

@@ -10,10 +10,10 @@ interface ProductAdoptionCardProps {
   data: {
     shopifyPayments: ProductData;
     shopPay: ProductData;
-    b2b: ProductData;
-    retailPayments: ProductData;
-    posPro: ProductData;
     shopPayInstallments: ProductData;
+    b2b: ProductData;
+    posPro: ProductData;
+    shipping: ProductData;
   };
 }
 
@@ -21,10 +21,10 @@ export function ProductAdoptionCard({ data }: ProductAdoptionCardProps) {
   const products = [
     { name: 'Shopify Payments', data: data.shopifyPayments },
     { name: 'Shop Pay', data: data.shopPay },
+    { name: 'Installments', data: data.shopPayInstallments },
     { name: 'B2B', data: data.b2b },
-    { name: 'Retail Payments', data: data.retailPayments },
     { name: 'POS Pro', data: data.posPro },
-    { name: 'Shop Pay Installments', data: data.shopPayInstallments },
+    { name: 'Shipping', data: data.shipping },
   ];
 
   const getPercentage = (adopted: number, total: number): number => {

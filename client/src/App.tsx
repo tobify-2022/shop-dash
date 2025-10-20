@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { IdentityProvider } from './contexts/identity-context';
+import { BigQueryAuthProvider } from './contexts/bigquery-auth-context';
 import { MSMProvider } from './contexts/msm-context';
 import { Router } from './Router';
 
@@ -16,9 +17,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <IdentityProvider>
-        <MSMProvider>
-          <Router />
-        </MSMProvider>
+        <BigQueryAuthProvider>
+          <MSMProvider>
+            <Router />
+          </MSMProvider>
+        </BigQueryAuthProvider>
       </IdentityProvider>
     </QueryClientProvider>
   );
