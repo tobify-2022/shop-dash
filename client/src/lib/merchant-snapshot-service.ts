@@ -14,6 +14,7 @@ export interface ProductAdoptionSignal {
   adopted_capital: boolean;
   adopted_capital_flex: boolean;
   adopted_shipping: boolean;
+  is_eligible_shop_pay_installments?: boolean; // Shop-level eligibility rolled up to account
 }
 
 export interface BookOfBusinessData {
@@ -23,15 +24,18 @@ export interface BookOfBusinessData {
   lowRisk: number;
   noRiskProfile: number;
   totalGMV: number;
+  launchMerchants: number;
 }
 
 export interface ProductChange {
   account_id: string;
   account_name: string;
   shop_id: string;
+  shop_name: string;
   product: string;
   change_date: string;
   change_type: 'activation' | 'deactivation';
+  shop_type?: 'primary' | 'expansion' | 'dev' | 'standard';
 }
 
 export interface ProductChangesData {
@@ -87,6 +91,11 @@ export async function fetchProductAdoptionSignals(msmName?: string): Promise<Pro
 
   const adoptionResult = await quickAPI.queryBigQuery(adoptionQuery);
   
+  // TODO: Shop Pay Installments eligibility filtering
+  // Temporarily disabled due to query access issues with shop_pay_installments_eligibility_current table
+  // For now, showing adoption out of all accounts (original behavior)
+  // See SPI_ELIGIBILITY_IMPLEMENTATION.md for implementation details
+  
   // Merge account names with adoption data
   const accountMap = new Map(accounts.map((a: any) => [a.account_id, a.account_name]));
   
@@ -108,6 +117,7 @@ export async function fetchBookOfBusiness(msmName?: string): Promise<BookOfBusin
       lowRisk: 0,
       noRiskProfile: 0,
       totalGMV: 0,
+      launchMerchants: 0,
     };
   }
 
@@ -148,6 +158,54 @@ export async function fetchBookOfBusiness(msmName?: string): Promise<BookOfBusin
     totalGMV += parseFloat(account.gmv_usd || 0);
   });
 
+  // Fetch launch merchants count
+  let launchMerchants = 0;
+  try {
+    const launchQuery = `
+      WITH account_ids AS (
+        SELECT account_id
+        FROM \`shopify-dw.mart_revenue_data.revenue_account_summary\`
+        WHERE account_owner = '${msmName}'
+          AND account_type = 'Customer'
+      ),
+      active_launch_cases AS (
+        SELECT DISTINCT
+          lc.account_id,
+          lc.opportunity_id,
+          lc.case_shop_id,
+          lc.status
+        FROM \`shopify-dw.sales.sales_launch_cases\` lc
+        INNER JOIN account_ids a ON lc.account_id = a.account_id
+        WHERE lc.product_line IN ('Plus', 'Plus LE - Merchant Launch')
+          AND lc.status != 'Closed'
+          AND lc.case_shop_id IS NOT NULL
+      ),
+      launch_with_threshold AS (
+        SELECT 
+          alc.account_id,
+          alc.case_shop_id,
+          0.005 * COALESCE(opp.annual_online_revenue_verified_usd, 0) AS threshold_gmv,
+          COALESCE(gmv.cumulative_gmv_usd, 0) AS current_cumulative_gmv
+        FROM active_launch_cases alc
+        LEFT JOIN \`shopify-dw.sales.sales_opportunities\` opp
+          ON alc.opportunity_id = opp.opportunity_id
+        LEFT JOIN \`shopify-dw.finance.shop_gmv_current\` gmv
+          ON alc.case_shop_id = gmv.shop_id
+      )
+      SELECT COUNT(DISTINCT account_id) as launch_count
+      FROM launch_with_threshold
+      WHERE current_cumulative_gmv < threshold_gmv
+        AND threshold_gmv > 0
+    `;
+    
+    const launchResult = await quickAPI.queryBigQuery(launchQuery);
+    launchMerchants = launchResult.rows[0]?.launch_count || 0;
+    console.log('🚀 BOB: Found', launchMerchants, 'launch merchants');
+  } catch (error) {
+    console.warn('⚠️ BOB: Could not fetch launch merchant count', error);
+    launchMerchants = 0;
+  }
+
   return {
     totalMerchants: accounts.length,
     highRisk,
@@ -155,6 +213,168 @@ export async function fetchBookOfBusiness(msmName?: string): Promise<BookOfBusin
     lowRisk,
     noRiskProfile,
     totalGMV,
+    launchMerchants,
+  };
+}
+
+export interface EngagementAccount {
+  account_id: string;
+  account_name: string;
+  last_activity_date: string | null;
+  days_since_activity: number;
+  activity_type?: string; // 'salesforce' | 'support' | 'none'
+  gmv_usd?: number;
+}
+
+export interface EngagementData {
+  critical: EngagementAccount[]; // 90+ days
+  high: EngagementAccount[]; // 61-90 days
+  medium: EngagementAccount[]; // 31-60 days
+  active: EngagementAccount[]; // 0-30 days
+}
+
+/**
+ * Fetch engagement data for all accounts
+ * Shows when each account was last engaged with (via Salesforce activities or support tickets)
+ */
+export async function fetchEngagementData(msmName?: string): Promise<EngagementData> {
+  if (!msmName) {
+    return {
+      critical: [],
+      high: [],
+      medium: [],
+      active: [],
+    };
+  }
+
+  // Step 1: Get all accounts for this MSM
+  const accountsQuery = `
+    SELECT 
+      account_id,
+      name as account_name,
+      COALESCE(gmv_usd_l365d, 0) as gmv_usd
+    FROM \`shopify-dw.mart_revenue_data.revenue_account_summary\`
+    WHERE account_owner = '${msmName}'
+      AND account_type = 'Customer'
+    ORDER BY gmv_usd_l365d DESC
+    LIMIT 100
+  `;
+
+  const accountsResult = await quickAPI.queryBigQuery(accountsQuery);
+  const accounts = accountsResult.rows;
+
+  if (accounts.length === 0) {
+    return {
+      critical: [],
+      high: [],
+      medium: [],
+      active: [],
+    };
+  }
+
+  const accountIds = accounts.map((a: any) => `'${a.account_id}'`).join(',');
+
+  // Step 2: Get last ACTUAL activity from Salesforce Tasks and Events (emails, calls, meetings)
+  // This gives us the true last time an MSM engaged with each account
+  const activityQuery = `
+    WITH combined_activities AS (
+      -- Get tasks (calls, emails, etc)
+      SELECT 
+        account_id,
+        activity_date as last_activity_date,
+        activity_type,
+        'task' as source
+      FROM \`shopify-dw.base.base__salesforce_banff_tasks\`
+      WHERE account_id IN (${accountIds})
+        AND activity_date IS NOT NULL
+        AND status = 'Completed'
+      
+      UNION ALL
+      
+      -- Get events (meetings, etc)
+      SELECT 
+        account_id,
+        activity_date as last_activity_date,
+        activity_type,
+        'event' as source
+      FROM \`shopify-dw.base.base__salesforce_banff_events\`
+      WHERE account_id IN (${accountIds})
+        AND activity_date IS NOT NULL
+    )
+    SELECT 
+      account_id,
+      MAX(last_activity_date) as last_activity_date,
+      ARRAY_AGG(activity_type ORDER BY last_activity_date DESC LIMIT 1)[OFFSET(0)] as last_activity_type
+    FROM combined_activities
+    GROUP BY account_id
+  `;
+
+  let activityData: any[] = [];
+  try {
+    const activityResult = await quickAPI.queryBigQuery(activityQuery);
+    activityData = activityResult.rows;
+    console.log('📊 ENGAGEMENT: Found activity data for', activityData.length, 'accounts from Tasks & Events');
+  } catch (error) {
+    console.warn('⚠️ ENGAGEMENT: Could not fetch Salesforce activity data', error);
+  }
+
+  // Create activity map
+  const activityMap = new Map<string, { date: string; type: string }>();
+  activityData.forEach((row: any) => {
+    if (row.last_activity_date) {
+      const dateValue = typeof row.last_activity_date === 'string' 
+        ? row.last_activity_date 
+        : row.last_activity_date.value;
+      activityMap.set(row.account_id, {
+        date: dateValue,
+        type: 'salesforce'
+      });
+    }
+  });
+
+  // Step 3: Process accounts and categorize by engagement staleness
+  const now = new Date();
+  const engagementAccounts: EngagementAccount[] = accounts.map((account: any) => {
+    const activity = activityMap.get(account.account_id);
+    const lastActivityDate = activity?.date || null;
+    
+    let daysSinceActivity = 999; // Default to very high if no activity
+    if (lastActivityDate) {
+      const activityDate = new Date(lastActivityDate);
+      daysSinceActivity = Math.floor((now.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    return {
+      account_id: account.account_id,
+      account_name: account.account_name,
+      last_activity_date: lastActivityDate,
+      days_since_activity: daysSinceActivity,
+      activity_type: activity?.type || 'none',
+      gmv_usd: parseFloat(account.gmv_usd || 0),
+    };
+  });
+
+  // Sort by days since activity (most urgent first within each category)
+  engagementAccounts.sort((a, b) => b.days_since_activity - a.days_since_activity);
+
+  // Categorize
+  const critical = engagementAccounts.filter(a => a.days_since_activity >= 90);
+  const high = engagementAccounts.filter(a => a.days_since_activity >= 61 && a.days_since_activity < 90);
+  const medium = engagementAccounts.filter(a => a.days_since_activity >= 31 && a.days_since_activity < 61);
+  const active = engagementAccounts.filter(a => a.days_since_activity < 31);
+
+  console.log('📊 ENGAGEMENT: Categorized', {
+    critical: critical.length,
+    high: high.length,
+    medium: medium.length,
+    active: active.length,
+  });
+
+  return {
+    critical,
+    high,
+    medium,
+    active,
   };
 }
 
@@ -169,27 +389,73 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
     };
   }
 
-  // Query for product adoption data with dates
+  // Query for product adoption data with all available activation/deactivation dates
+  // Also includes shop classification (primary, expansion, dev, standard)
   const query = `
     WITH account_data AS (
       SELECT 
         sa.account_id,
         sa.name as account_name,
         CAST(sa.primary_shop_id AS STRING) as shop_id,
+        sa.domain as shop_name,
+        -- Shopify Payments
         pa.shopify_payments_last_activated_date,
         pa.shopify_payments_last_deactivated_date,
+        -- Shop Pay
         pa.shop_pay_last_activated_date,
+        -- Installments
         pa.shop_pay_installments_last_activated_date,
         pa.shop_pay_installments_last_deactivated_date,
+        -- Installments Premium
+        pa.shop_pay_installments_premium_last_activated_date,
+        -- Retail Payments
+        pa.shopify_retail_payments_last_activated_date,
+        -- B2B
         pa.b2b_last_activated_at,
-        pa.pos_pro_last_activated_at
+        -- POS Pro
+        pa.pos_pro_last_activated_at,
+        -- Shop classification data
+        sbi.is_dev,
+        soc.organization_id,
+        opc.shop_count as org_shop_count,
+        bpc.current_primary_shop_id
       FROM \`shopify-dw.sales.sales_accounts\` sa
       LEFT JOIN \`shopify-dw.mart_revenue_data.revenue_account_product_adoption_summary\` pa
         ON sa.account_id = pa.account_id
+      LEFT JOIN \`shopify-dw.accounts_and_administration.shop_billing_info_current\` sbi
+        ON sa.primary_shop_id = sbi.shop_id
+      LEFT JOIN \`shopify-dw.accounts_and_administration.shop_organization_current\` soc
+        ON sa.primary_shop_id = soc.shop_id
+      LEFT JOIN \`shopify-dw.accounts_and_administration.organization_profile_current\` opc
+        ON soc.organization_id = opc.organization_id
+      LEFT JOIN \`shopify-dw.accounts_and_administration.business_platform_contracts\` bpc
+        ON soc.organization_id = bpc.organization_id
+        AND bpc.is_not_deleted = TRUE
+        AND bpc.is_billing_deal_active = TRUE
       WHERE sa.account_owner = '${msmName}'
         AND sa.account_type = 'Customer'
+    ),
+    classified_data AS (
+      SELECT 
+        *,
+        -- Shop type classification logic
+        CASE
+          -- Development/staging shops
+          WHEN is_dev = TRUE THEN 'dev'
+          -- Primary shop in a Plus deal
+          WHEN CAST(shop_id AS INT64) = current_primary_shop_id THEN 'primary'
+          -- Expansion shops (multi-shop org, not primary, not dev)
+          WHEN organization_id IS NOT NULL 
+            AND org_shop_count > 1 
+            AND (current_primary_shop_id IS NULL OR CAST(shop_id AS INT64) != current_primary_shop_id)
+            AND (is_dev = FALSE OR is_dev IS NULL)
+            THEN 'expansion'
+          -- Standard shops (single shop or no special classification)
+          ELSE 'standard'
+        END as shop_type
+      FROM account_data
     )
-    SELECT * FROM account_data
+    SELECT * FROM classified_data
   `;
 
   const result = await quickAPI.queryBigQuery(query);
@@ -197,11 +463,20 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
 
   console.log('🔍 PRODUCT CHANGES: Query returned', accounts.length, 'accounts');
   console.log('🔍 PRODUCT CHANGES: First account:', accounts[0]);
-  console.log('🔍 PRODUCT CHANGES: Sample dates:', {
-    shopify_payments: accounts[0]?.shopify_payments_last_activated_date,
-    shop_pay: accounts[0]?.shop_pay_last_activated_date,
-    b2b: accounts[0]?.b2b_last_activated_at,
-  });
+  console.log('🔍 PRODUCT CHANGES: Shop type classification:', accounts.map((a: any) => ({ 
+    shop_id: a.shop_id, 
+    shop_type: a.shop_type,
+    is_dev: a.is_dev,
+    org_shop_count: a.org_shop_count 
+  })));
+  
+  // Deep inspect the date field structure
+  const sampleDate = accounts[0]?.shopify_payments_last_activated_date;
+  console.log('🔍 PRODUCT CHANGES: Date field type:', typeof sampleDate);
+  console.log('🔍 PRODUCT CHANGES: Date field JSON:', JSON.stringify(sampleDate));
+  console.log('🔍 PRODUCT CHANGES: Date field keys:', sampleDate ? Object.keys(sampleDate) : 'null');
+  console.log('🔍 PRODUCT CHANGES: Has value prop?', sampleDate && 'value' in sampleDate);
+  console.log('🔍 PRODUCT CHANGES: Full date structure:', sampleDate);
 
   const activations: ProductChange[] = [];
   const deactivations: ProductChange[] = [];
@@ -215,94 +490,91 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
       account_id: account.account_id,
       account_name: account.account_name,
       shop_id: account.shop_id || 'N/A',
+      shop_name: account.shop_name || account.account_name, // Fallback to account name if no shop domain
+      shop_type: account.shop_type as 'primary' | 'expansion' | 'dev' | 'standard' | undefined,
     };
 
-    // Check Shopify Payments
-    if (account.shopify_payments_last_activated_date) {
-      const activatedDate = new Date(account.shopify_payments_last_activated_date);
-      if (activatedDate >= thirtyDaysAgo) {
-        activations.push({
-          ...baseData,
-          product: 'Shopify Payments',
-          change_date: account.shopify_payments_last_activated_date,
-          change_type: 'activation',
-        });
+    // Helper function to extract date string from BigQuery date object or string
+    const extractDateValue = (dateValue: any): string | null => {
+      if (!dateValue) return null;
+      
+      // If it's already a string, return it
+      if (typeof dateValue === 'string') return dateValue;
+      
+      // If it's a BigQuery date object with 'value' property
+      if (typeof dateValue === 'object' && 'value' in dateValue) {
+        return dateValue.value;
       }
-    }
-    if (account.shopify_payments_last_deactivated_date) {
-      const deactivatedDate = new Date(account.shopify_payments_last_deactivated_date);
-      if (deactivatedDate >= thirtyDaysAgo) {
-        deactivations.push({
-          ...baseData,
-          product: 'Shopify Payments',
-          change_date: account.shopify_payments_last_deactivated_date,
-          change_type: 'deactivation',
-        });
-      }
-    }
+      
+      return null;
+    };
 
-    // Check Shop Pay
-    if (account.shop_pay_last_activated_date) {
-      const activatedDate = new Date(account.shop_pay_last_activated_date);
-      if (activatedDate >= thirtyDaysAgo) {
-        activations.push({
-          ...baseData,
-          product: 'Shop Pay',
-          change_date: account.shop_pay_last_activated_date,
-          change_type: 'activation',
-        });
+    // Helper function to process DATE fields
+    const processDateField = (
+      dateValue: any,
+      productName: string,
+      changeType: 'activation' | 'deactivation'
+    ) => {
+      const dateString = extractDateValue(dateValue);
+      if (dateString) {
+        const date = new Date(dateString);
+        if (date >= thirtyDaysAgo) {
+          const change: ProductChange = {
+            ...baseData,
+            product: productName,
+            change_date: dateString,
+            change_type: changeType,
+          };
+          
+          if (changeType === 'activation') {
+            activations.push(change);
+          } else {
+            deactivations.push(change);
+          }
+        }
       }
-    }
+    };
 
-    // Check Installments
-    if (account.shop_pay_installments_last_activated_date) {
-      const activatedDate = new Date(account.shop_pay_installments_last_activated_date);
-      if (activatedDate >= thirtyDaysAgo) {
-        activations.push({
-          ...baseData,
-          product: 'Installments',
-          change_date: account.shop_pay_installments_last_activated_date,
-          change_type: 'activation',
-        });
+    // Helper function to process TIMESTAMP fields
+    const processTimestampField = (
+      timestampValue: any,
+      productName: string,
+      changeType: 'activation' | 'deactivation'
+    ) => {
+      const timestampString = extractDateValue(timestampValue);
+      if (timestampString) {
+        const date = new Date(timestampString);
+        if (date >= thirtyDaysAgo) {
+          const change: ProductChange = {
+            ...baseData,
+            product: productName,
+            change_date: date.toISOString().split('T')[0], // Convert to date string
+            change_type: changeType,
+          };
+          
+          if (changeType === 'activation') {
+            activations.push(change);
+          } else {
+            deactivations.push(change);
+          }
+        }
       }
-    }
-    if (account.shop_pay_installments_last_deactivated_date) {
-      const deactivatedDate = new Date(account.shop_pay_installments_last_deactivated_date);
-      if (deactivatedDate >= thirtyDaysAgo) {
-        deactivations.push({
-          ...baseData,
-          product: 'Installments',
-          change_date: account.shop_pay_installments_last_deactivated_date,
-          change_type: 'deactivation',
-        });
-      }
-    }
+    };
 
-    // Check B2B (timestamp field)
-    if (account.b2b_last_activated_at) {
-      const activatedDate = new Date(account.b2b_last_activated_at);
-      if (activatedDate >= thirtyDaysAgo) {
-        activations.push({
-          ...baseData,
-          product: 'B2B',
-          change_date: activatedDate.toISOString().split('T')[0],
-          change_type: 'activation',
-        });
-      }
-    }
+    // Process all products with activation dates
+    processDateField(account.shopify_payments_last_activated_date, 'Shopify Payments', 'activation');
+    processDateField(account.shop_pay_last_activated_date, 'Shop Pay', 'activation');
+    processDateField(account.shop_pay_installments_last_activated_date, 'Installments', 'activation');
+    processDateField(account.shop_pay_installments_premium_last_activated_date, 'Installments Premium', 'activation');
+    processDateField(account.shopify_retail_payments_last_activated_date, 'Retail Payments', 'activation');
+    
+    // Process TIMESTAMP fields
+    processTimestampField(account.b2b_last_activated_at, 'B2B', 'activation');
+    processTimestampField(account.pos_pro_last_activated_at, 'POS Pro', 'activation');
 
-    // Check POS Pro (timestamp field)
-    if (account.pos_pro_last_activated_at) {
-      const activatedDate = new Date(account.pos_pro_last_activated_at);
-      if (activatedDate >= thirtyDaysAgo) {
-        activations.push({
-          ...baseData,
-          product: 'POS Pro',
-          change_date: activatedDate.toISOString().split('T')[0],
-          change_type: 'activation',
-        });
-      }
-    }
+    // Process deactivations
+    processDateField(account.shopify_payments_last_deactivated_date, 'Shopify Payments', 'deactivation');
+    processDateField(account.shop_pay_installments_last_deactivated_date, 'Installments', 'deactivation');
   });
 
   // Sort by date descending (most recent first)
@@ -311,7 +583,16 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
 
   console.log('🔍 PRODUCT CHANGES: Found', activations.length, 'activations and', deactivations.length, 'deactivations');
   if (activations.length > 0) {
-    console.log('🔍 PRODUCT CHANGES: First activation:', activations[0]);
+    console.log('🔍 PRODUCT CHANGES: First 3 activations:', activations.slice(0, 3));
+  } else {
+    console.log('🔍 PRODUCT CHANGES: No activations found. Sample account data:', {
+      account: accounts[0]?.account_name,
+      raw_shopify_payments: accounts[0]?.shopify_payments_last_activated_date,
+      raw_shop_pay: accounts[0]?.shop_pay_last_activated_date,
+    });
+  }
+  if (deactivations.length > 0) {
+    console.log('🔍 PRODUCT CHANGES: First 3 deactivations:', deactivations.slice(0, 3));
   }
 
   return {
