@@ -438,17 +438,28 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
     classified_data AS (
       SELECT 
         *,
-        -- Shop type classification logic
+        -- Shop type classification logic (with data quality overrides)
         CASE
-          -- Development/staging shops
-          WHEN is_dev = TRUE THEN 'dev'
-          -- Primary shop in a Plus deal
-          WHEN CAST(shop_id AS INT64) = current_primary_shop_id THEN 'primary'
+          -- Development/staging shops (by flag OR by name pattern)
+          WHEN is_dev = TRUE 
+            OR LOWER(shop_name) LIKE '%staging%'
+            OR LOWER(shop_name) LIKE '%dev%'
+            OR LOWER(shop_name) LIKE '%test%'
+            THEN 'dev'
+          -- Primary shop in a Plus deal (but not if it looks like dev/staging)
+          WHEN CAST(shop_id AS INT64) = current_primary_shop_id 
+            AND LOWER(shop_name) NOT LIKE '%staging%'
+            AND LOWER(shop_name) NOT LIKE '%dev%'
+            AND LOWER(shop_name) NOT LIKE '%test%'
+            THEN 'primary'
           -- Expansion shops (multi-shop org, not primary, not dev)
           WHEN organization_id IS NOT NULL 
             AND org_shop_count > 1 
             AND (current_primary_shop_id IS NULL OR CAST(shop_id AS INT64) != current_primary_shop_id)
             AND (is_dev = FALSE OR is_dev IS NULL)
+            AND LOWER(shop_name) NOT LIKE '%staging%'
+            AND LOWER(shop_name) NOT LIKE '%dev%'
+            AND LOWER(shop_name) NOT LIKE '%test%'
             THEN 'expansion'
           -- Standard shops (single shop or no special classification)
           ELSE 'standard'
