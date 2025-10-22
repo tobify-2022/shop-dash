@@ -1,4 +1,4 @@
-import { Search, Bell } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useIdentity } from '@/contexts/identity-context';
 
 export function Header() {
@@ -6,19 +6,7 @@ export function Header() {
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-10">
-      <div className="px-6 py-3 flex items-center justify-between gap-4">
-        {/* Search Bar */}
-        <div className="flex-1 max-w-lg">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search merchants, opportunities, plans..."
-              className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#008060] focus:border-transparent"
-            />
-          </div>
-        </div>
-
+      <div className="px-6 py-3 flex items-center justify-end gap-4">
         {/* Right Side - Notifications & User */}
         <div className="flex items-center gap-4">
           {/* Notifications */}
@@ -33,7 +21,6 @@ export function Header() {
               <div className="text-sm font-medium text-foreground">
                 {user?.fullName || 'Dugald Todd'}
               </div>
-              <div className="text-xs text-muted-foreground">North America</div>
             </div>
             <div className="w-10 h-10 bg-[#008060] rounded-full flex items-center justify-center">
               <span className="text-white font-semibold text-sm">

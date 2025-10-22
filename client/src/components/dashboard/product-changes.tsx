@@ -29,34 +29,6 @@ export function ProductChanges({ activations, deactivations, className }: Produc
     return colors[product] || 'bg-gray-100 text-gray-700 border-gray-200';
   }
 
-  // Shop type label styling (text only, no background)
-  function getShopTypeLabel(shopType?: 'primary' | 'expansion' | 'dev' | 'standard') {
-    if (!shopType || shopType === 'standard') return null;
-    
-    const config = {
-      primary: {
-        label: 'Primary Store',
-        className: 'text-blue-600',
-      },
-      expansion: {
-        label: 'Exp Store',
-        className: 'text-orange-600',
-      },
-      dev: {
-        label: 'Dev Store',
-        className: 'text-yellow-600',
-      },
-    };
-
-    const { label, className } = config[shopType];
-    
-    return (
-      <span className={`text-[10px] font-medium ${className}`}>
-        {label}
-      </span>
-    );
-  }
-
 
   // Format relative time
   const getRelativeTime = (dateString: string): string => {
@@ -154,11 +126,10 @@ export function ProductChanges({ activations, deactivations, className }: Produc
                       {change.account_name}
                     </p>
                     
-                    {/* Shop ID with Type Label */}
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="truncate">Shop ID: {change.shop_id}</span>
-                      {getShopTypeLabel(change.shop_type)}
-                    </div>
+                    {/* Shop ID */}
+                    <p className="text-xs text-muted-foreground truncate">
+                      Shop ID: {change.shop_id}
+                    </p>
                     
                     {/* Time */}
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -174,4 +145,3 @@ export function ProductChanges({ activations, deactivations, className }: Produc
     </Card>
   );
 }
-

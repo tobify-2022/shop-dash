@@ -168,21 +168,20 @@ export function AttainmentCard({ msmName, msmEmail }: AttainmentCardProps) {
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <Target className="w-5 h-5 text-[#008060]" />
-          Attainment
+          Attainment Tracking
         </CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">NRR & IPP Performance</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading...</div>
         ) : error ? (
           <div className="text-sm text-destructive">Error: {error}</div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 h-full">
             {/* NRR Section */}
             {metrics.nrr && (
               <div className="space-y-1">
@@ -212,11 +211,6 @@ export function AttainmentCard({ msmName, msmEmail }: AttainmentCardProps) {
                 <div className="text-base font-semibold text-foreground">
                   {formatCurrency(metrics.ipp.current)} <span className="text-xs text-muted-foreground">of</span> {formatCurrency(metrics.ipp.target)}
                 </div>
-                {metrics.ipp.openPipeline !== undefined && metrics.ipp.openPipeline > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    Open pipeline: {formatCurrency(metrics.ipp.openPipeline)}
-                  </div>
-                )}
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#008060] transition-all"

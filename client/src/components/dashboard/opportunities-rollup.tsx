@@ -57,7 +57,7 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
     return { bg: 'bg-gray-100', text: 'text-gray-700' };
   };
 
-  // Get all open opportunities sorted by amount (highest first)
+  // Get all open opportunities sorted by close date (soonest first)
   const getOpenOpportunities = (): SalesforceOpportunity[] => {
     try {
       if (!Array.isArray(opportunities) || opportunities.length === 0) {
@@ -66,7 +66,12 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
 
       return opportunities
         .filter(o => !o.is_closed)
-        .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+        .sort((a, b) => {
+          // Sort by close date - earliest first
+          const dateA = a.close_date ? new Date(a.close_date).getTime() : Infinity;
+          const dateB = b.close_date ? new Date(b.close_date).getTime() : Infinity;
+          return dateA - dateB;
+        });
     } catch (err) {
       console.error('Error getting open opportunities:', err);
       return [];
@@ -129,6 +134,38 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
   // Generate Salesforce opportunity URL
   const getSalesforceUrl = (opportunityId: string): string => {
     return `https://banff.lightning.force.com/lightning/r/Opportunity/${opportunityId}/view`;
+  };
+
+  // Get urgency styling based on close date
+  const getUrgencyStyle = (dateStr: string): { borderColor: string; iconColor: string } => {
+    if (!dateStr) return { borderColor: 'border-l-gray-300', iconColor: 'text-muted-foreground' };
+    
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = date.getTime() - now.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      // Past due - Red
+      if (diffDays < 0) {
+        return { borderColor: 'border-l-red-500', iconColor: 'text-red-500' };
+      }
+      
+      // < 2 weeks (14 days) - Red (urgent!)
+      if (diffDays < 14) {
+        return { borderColor: 'border-l-red-500', iconColor: 'text-red-500' };
+      }
+      
+      // 2-4 weeks (14-28 days) - Orange (approaching)
+      if (diffDays < 28) {
+        return { borderColor: 'border-l-orange-500', iconColor: 'text-orange-500' };
+      }
+      
+      // > 4 weeks - Green (healthy timeline)
+      return { borderColor: 'border-l-green-500', iconColor: 'text-green-500' };
+    } catch {
+      return { borderColor: 'border-l-gray-300', iconColor: 'text-muted-foreground' };
+    }
   };
 
   const openOpportunities = getOpenOpportunities();
@@ -211,61 +248,64 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
   }
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg">
           <TrendingUp className="w-5 h-5 text-[#008060]" />
           Opportunities
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">Open opportunities in your book</p>
       </CardHeader>
-      <CardContent className="flex flex-col space-y-3">
-        {/* Open Opportunities List - Show ~3 opportunities (max-h-64) with scroll */}
+      <CardContent className="flex flex-col space-y-3 flex-1 overflow-hidden">
+        {/* Open Opportunities List - Scrollable with full height */}
         {openOpportunities.length > 0 ? (
-          <div className="overflow-y-auto space-y-2 pr-1 max-h-64">
-            {openOpportunities.map((opp) => (
-              <a
+          <div className="overflow-y-auto space-y-2 pr-1 flex-1">
+            {openOpportunities.map((opp) => {
+              const urgency = getUrgencyStyle(opp.close_date);
+              return (
+                <a
                   key={opp.opportunity_id}
-                href={getSalesforceUrl(opp.opportunity_id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-muted rounded-lg p-2.5 hover:bg-muted/70 transition-all hover:shadow-md group"
-              >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-medium text-foreground truncate group-hover:text-[#008060] transition-colors">
-                        {opp.opportunity_name}
+                  href={getSalesforceUrl(opp.opportunity_id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-muted rounded-lg p-2.5 hover:bg-muted/70 transition-all hover:shadow-md group"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-medium text-foreground truncate group-hover:text-[#008060] transition-colors">
+                          {opp.opportunity_name}
+                        </p>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-[#008060] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {opp.account_name}
                       </p>
-                      <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-[#008060] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {opp.account_name}
-                    </p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-semibold text-[#008060]">
+                        {formatCurrency(opp.amount)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-semibold text-[#008060]">
-                      {formatCurrency(opp.amount)}
-                    </p>
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    {(() => {
+                      const colors = getStageColor(opp.stage_name);
+                      return (
+                        <span className={`inline-block text-xs px-1.5 py-0.5 ${colors.bg} ${colors.text} rounded font-medium`}>
+                          {opp.stage_name}
+                        </span>
+                      );
+                    })()}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className={`w-3 h-3 ${urgency.iconColor}`} />
+                      <span>Close: {formatCloseDate(opp.close_date)}</span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between gap-2">
-                  {(() => {
-                    const colors = getStageColor(opp.stage_name);
-                    return (
-                      <span className={`inline-block text-xs px-1.5 py-0.5 ${colors.bg} ${colors.text} rounded font-medium`}>
-                      {opp.stage_name}
-                    </span>
-                    );
-                  })()}
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Calendar className="w-3 h-3" />
-                    <span>Close: {formatCloseDate(opp.close_date)}</span>
-                  </div>
-                </div>
-              </a>
-            ))}
+                </a>
+              );
+            })}
           </div>
         ) : (
           <div className="flex items-center justify-center text-muted-foreground py-8">
@@ -275,13 +315,6 @@ export function OpportunitiesRollup({ msmName }: OpportunitiesRollupProps) {
             </div>
           </div>
         )}
-
-        {/* Total Count Footer */}
-        <div className="border-t pt-3 text-center">
-          <p className="text-xs text-muted-foreground">
-            Total: <span className="font-semibold text-foreground">{opportunities?.length || 0}</span> opportunities
-          </p>
-        </div>
       </CardContent>
     </Card>
   );

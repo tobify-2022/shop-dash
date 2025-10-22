@@ -35,7 +35,6 @@ export interface ProductChange {
   product: string;
   change_date: string;
   change_type: 'activation' | 'deactivation';
-  shop_type?: 'primary' | 'expansion' | 'dev' | 'standard';
 }
 
 export interface ProductChangesData {
@@ -390,7 +389,6 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
   }
 
   // Query for product adoption data with all available activation/deactivation dates
-  // Also includes shop classification (primary, expansion, dev, standard)
   const query = `
     WITH account_data AS (
       SELECT 
@@ -413,60 +411,14 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
         -- B2B
         pa.b2b_last_activated_at,
         -- POS Pro
-        pa.pos_pro_last_activated_at,
-        -- Shop classification data
-        sbi.is_dev,
-        soc.organization_id,
-        opc.shop_count as org_shop_count,
-        bpc.current_primary_shop_id
+        pa.pos_pro_last_activated_at
       FROM \`shopify-dw.sales.sales_accounts\` sa
       LEFT JOIN \`shopify-dw.mart_revenue_data.revenue_account_product_adoption_summary\` pa
         ON sa.account_id = pa.account_id
-      LEFT JOIN \`shopify-dw.accounts_and_administration.shop_billing_info_current\` sbi
-        ON sa.primary_shop_id = sbi.shop_id
-      LEFT JOIN \`shopify-dw.accounts_and_administration.shop_organization_current\` soc
-        ON sa.primary_shop_id = soc.shop_id
-      LEFT JOIN \`shopify-dw.accounts_and_administration.organization_profile_current\` opc
-        ON soc.organization_id = opc.organization_id
-      LEFT JOIN \`shopify-dw.accounts_and_administration.business_platform_contracts\` bpc
-        ON soc.organization_id = bpc.organization_id
-        AND bpc.is_not_deleted = TRUE
-        AND bpc.is_billing_deal_active = TRUE
       WHERE sa.account_owner = '${msmName}'
         AND sa.account_type = 'Customer'
-    ),
-    classified_data AS (
-      SELECT 
-        *,
-        -- Shop type classification logic (with data quality overrides)
-        CASE
-          -- Development/staging shops (by flag OR by name pattern)
-          WHEN is_dev = TRUE 
-            OR LOWER(shop_name) LIKE '%staging%'
-            OR LOWER(shop_name) LIKE '%dev%'
-            OR LOWER(shop_name) LIKE '%test%'
-            THEN 'dev'
-          -- Primary shop in a Plus deal (but not if it looks like dev/staging)
-          WHEN CAST(shop_id AS INT64) = current_primary_shop_id 
-            AND LOWER(shop_name) NOT LIKE '%staging%'
-            AND LOWER(shop_name) NOT LIKE '%dev%'
-            AND LOWER(shop_name) NOT LIKE '%test%'
-            THEN 'primary'
-          -- Expansion shops (multi-shop org, not primary, not dev)
-          WHEN organization_id IS NOT NULL 
-            AND org_shop_count > 1 
-            AND (current_primary_shop_id IS NULL OR CAST(shop_id AS INT64) != current_primary_shop_id)
-            AND (is_dev = FALSE OR is_dev IS NULL)
-            AND LOWER(shop_name) NOT LIKE '%staging%'
-            AND LOWER(shop_name) NOT LIKE '%dev%'
-            AND LOWER(shop_name) NOT LIKE '%test%'
-            THEN 'expansion'
-          -- Standard shops (single shop or no special classification)
-          ELSE 'standard'
-        END as shop_type
-      FROM account_data
     )
-    SELECT * FROM classified_data
+    SELECT * FROM account_data
   `;
 
   const result = await quickAPI.queryBigQuery(query);
@@ -474,12 +426,6 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
 
   console.log('🔍 PRODUCT CHANGES: Query returned', accounts.length, 'accounts');
   console.log('🔍 PRODUCT CHANGES: First account:', accounts[0]);
-  console.log('🔍 PRODUCT CHANGES: Shop type classification:', accounts.map((a: any) => ({ 
-    shop_id: a.shop_id, 
-    shop_type: a.shop_type,
-    is_dev: a.is_dev,
-    org_shop_count: a.org_shop_count 
-  })));
   
   // Deep inspect the date field structure
   const sampleDate = accounts[0]?.shopify_payments_last_activated_date;

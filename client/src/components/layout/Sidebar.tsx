@@ -1,4 +1,4 @@
-import { Home, Users, Phone, Target, FileText, TrendingUp, DollarSign, Activity, BarChart3, Settings } from 'lucide-react';
+import { Home, Search, Globe } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
 
@@ -20,26 +20,15 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: 'MERCHANTS',
+    title: 'UTILITY',
     items: [
-      { title: 'All Merchants', href: '/merchants', icon: Users },
-      { title: 'Calls', href: '/calls', icon: Phone },
-      { title: 'Opportunities', href: '/opportunities', icon: Target },
-      { title: 'Success Plans', href: '/success-plans', icon: FileText },
+      { title: 'App Checker', href: '/app-checker', icon: Search },
     ],
   },
   {
-    title: 'GOALS',
+    title: 'INSIGHTS',
     items: [
-      { title: 'NRR', href: '/goals/nrr', icon: TrendingUp },
-      { title: 'IPP', href: '/goals/ipp', icon: DollarSign },
-      { title: 'WDOLL', href: '/goals/wdoll', icon: Activity },
-    ],
-  },
-  {
-    items: [
-      { title: 'Reports', href: '/reports', icon: BarChart3 },
-      { title: 'Settings', href: '/settings', icon: Settings },
+      { title: 'Regional Insights', href: '/regional-insights', icon: Globe },
     ],
   },
 ];
@@ -51,13 +40,11 @@ export function Sidebar() {
     <aside className="w-64 bg-card border-r border-border h-screen overflow-y-auto flex flex-col">
       {/* Logo/Header */}
       <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#008060] rounded flex items-center justify-center">
-            <Users className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className="font-semibold text-sm text-foreground">Merchant Success</div>
-            <div className="text-xs text-muted-foreground">MSM Dashboard</div>
+        <div className="flex items-center justify-center">
+          <div className="text-3xl flex items-center gap-1">
+            <span>🔥</span>
+            <span>👁️</span>
+            <span>🔥</span>
           </div>
         </div>
       </div>

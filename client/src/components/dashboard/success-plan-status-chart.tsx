@@ -1,8 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Popover } from '@/components/ui/popover';
 import { ClipboardList, MousePointerClick } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useEffect, useState } from 'react';
 import { fetchSuccessPlanStatus, fetchAccountsWithoutPlans, SuccessPlanData, AccountWithoutPlan } from '@/lib/success-plan-service';
 import { cn } from '@/lib/utils';
@@ -60,86 +58,39 @@ export function SuccessPlanStatusChart({ msmName }: SuccessPlanStatusChartProps)
     loadData();
   }, [msmName]);
 
-  // Convert data to chart format
-  const chartData = data ? {
-    visions: [
-      { name: 'Complete', value: data.visions.complete, color: COLORS.complete },
-      { name: 'Active', value: data.visions.active, color: COLORS.active },
-      { name: 'Overdue', value: data.visions.overdue, color: COLORS.overdue },
-      { name: 'On Hold', value: data.visions.onHold, color: COLORS.onHold },
-      { name: 'Cancelled', value: data.visions.cancelled, color: COLORS.cancelled },
-    ].filter(item => item.value > 0),
-    priorities: [
-      { name: 'Complete', value: data.priorities.complete, color: COLORS.complete },
-      { name: 'Active', value: data.priorities.active, color: COLORS.active },
-      { name: 'Overdue', value: data.priorities.overdue, color: COLORS.overdue },
-      { name: 'On Hold', value: data.priorities.onHold, color: COLORS.onHold },
-      { name: 'Cancelled', value: data.priorities.cancelled, color: COLORS.cancelled },
-    ].filter(item => item.value > 0),
-    outcomes: [
-      { name: 'Complete', value: data.outcomes.complete, color: COLORS.complete },
-      { name: 'Active', value: data.outcomes.active, color: COLORS.active },
-      { name: 'Overdue', value: data.outcomes.overdue, color: COLORS.overdue },
-      { name: 'On Hold', value: data.outcomes.onHold, color: COLORS.onHold },
-      { name: 'Cancelled', value: data.outcomes.cancelled, color: COLORS.cancelled },
-    ].filter(item => item.value > 0),
-  } : null;
+  // Calculate percentages for each category
+  const calculateBarSegments = (categoryData: { complete: number; active: number; overdue: number; onHold: number; cancelled: number }) => {
+    const total = categoryData.complete + categoryData.active + categoryData.overdue + categoryData.onHold + categoryData.cancelled;
+    if (total === 0) return [];
+    
+    return [
+      { name: 'Complete', value: categoryData.complete, percentage: (categoryData.complete / total) * 100, color: COLORS.complete },
+      { name: 'Active', value: categoryData.active, percentage: (categoryData.active / total) * 100, color: COLORS.active },
+      { name: 'Overdue', value: categoryData.overdue, percentage: (categoryData.overdue / total) * 100, color: COLORS.overdue },
+      { name: 'On Hold', value: categoryData.onHold, percentage: (categoryData.onHold / total) * 100, color: COLORS.onHold },
+      { name: 'Cancelled', value: categoryData.cancelled, percentage: (categoryData.cancelled / total) * 100, color: COLORS.cancelled },
+    ].filter(item => item.value > 0);
+  };
 
-  const renderChart = (tabData: { name: string; value: number; color: string }[]) => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center h-[200px]">
-          <div className="text-sm text-muted-foreground">Loading...</div>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="flex items-center justify-center h-[200px]">
-          <div className="text-sm text-red-500">{error}</div>
-        </div>
-      );
-    }
-
-    if (!tabData || tabData.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-[200px]">
-          <div className="text-sm text-muted-foreground">No data available</div>
-        </div>
-      );
-    }
-
+  const renderHorizontalBar = (label: string, segments: { name: string; value: number; percentage: number; color: string }[], total: number) => {
     return (
-      <div className="space-y-3">
-        <ResponsiveContainer width="100%" height={160}>
-          <PieChart>
-            <Pie
-              data={tabData}
-              cx="50%"
-              cy="50%"
-              innerRadius={35}
-              outerRadius={65}
-              paddingAngle={2}
-              dataKey="value"
-            >
-              {tabData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        
-        {/* Custom compact legend */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center text-xs">
-          {tabData.map((entry, index) => (
-            <div key={index} className="flex items-center gap-1.5">
-              <div 
-                className="w-3 h-3 rounded-sm" 
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="text-muted-foreground">{entry.name}</span>
-            </div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-foreground">{label}</span>
+          <span className="text-xs text-muted-foreground">{total} total</span>
+        </div>
+        <div className="h-2 bg-muted rounded-full overflow-hidden flex">
+          {segments.map((segment, index) => (
+            <div
+              key={index}
+              className="h-full transition-all hover:opacity-80"
+              style={{ 
+                width: `${segment.percentage}%`,
+                backgroundColor: segment.color,
+                minWidth: segment.percentage > 0 ? '2%' : '0'
+              }}
+              title={`${segment.name}: ${segment.value}`}
+            />
           ))}
         </div>
       </div>
@@ -157,8 +108,8 @@ export function SuccessPlanStatusChart({ msmName }: SuccessPlanStatusChartProps)
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -208,26 +159,103 @@ export function SuccessPlanStatusChart({ msmName }: SuccessPlanStatusChartProps)
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="visions">
-          <TabsList className="w-full">
-            <TabsTrigger value="visions" className="flex-1">Visions</TabsTrigger>
-            <TabsTrigger value="priorities" className="flex-1">Priorities</TabsTrigger>
-            <TabsTrigger value="outcomes" className="flex-1">Outcomes</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="visions">
-            {renderChart(chartData?.visions || [])}
-          </TabsContent>
+      <CardContent className="flex-1 overflow-hidden">
+        {loading ? (
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        ) : error ? (
+          <div className="text-sm text-red-500">{error}</div>
+        ) : !data ? (
+          <div className="text-sm text-muted-foreground">No data available</div>
+        ) : (
+          <div className="space-y-4">
+            {/* Visions Bar */}
+            {renderHorizontalBar(
+              'Visions',
+              calculateBarSegments(data.visions),
+              data.visions.complete + data.visions.active + data.visions.overdue + data.visions.onHold + data.visions.cancelled
+            )}
 
-          <TabsContent value="priorities">
-            {renderChart(chartData?.priorities || [])}
-          </TabsContent>
+            {/* Priorities Bar */}
+            {renderHorizontalBar(
+              'Priorities',
+              calculateBarSegments(data.priorities),
+              data.priorities.complete + data.priorities.active + data.priorities.overdue + data.priorities.onHold + data.priorities.cancelled
+            )}
 
-          <TabsContent value="outcomes">
-            {renderChart(chartData?.outcomes || [])}
-          </TabsContent>
-        </Tabs>
+            {/* Outcomes Bar */}
+            {renderHorizontalBar(
+              'Outcomes',
+              calculateBarSegments(data.outcomes),
+              data.outcomes.complete + data.outcomes.active + data.outcomes.overdue + data.outcomes.onHold + data.outcomes.cancelled
+            )}
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center text-xs pt-2 border-t">
+              {[
+                { name: 'Complete', color: COLORS.complete },
+                { name: 'Active', color: COLORS.active },
+                { name: 'Overdue', color: COLORS.overdue },
+                { name: 'On Hold', color: COLORS.onHold },
+                { name: 'Cancelled', color: COLORS.cancelled },
+              ].map((item, index) => (
+                <div key={index} className="flex items-center gap-1.5">
+                  <div 
+                    className="w-3 h-3 rounded-sm" 
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-muted-foreground">{item.name}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Top 5 GMV Coverage Analysis */}
+            {data.top5Accounts && data.top5Accounts.length > 0 && (
+              <div className="pt-3 border-t mt-3">
+                <div className="text-center mb-3">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Success Plan Coverage for Top 5 Accounts (GMV)
+                  </div>
+                  <div className={cn(
+                    "text-2xl font-bold mt-1",
+                    data.top5Coverage === 100 ? "text-green-600" : 
+                    data.top5Coverage >= 60 ? "text-amber-600" : "text-red-600"
+                  )}>
+                    {data.top5Coverage}%
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {data.top5Accounts.map((account, idx) => (
+                    <div key={account.account_id} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground truncate flex-1 mr-2">
+                        {idx + 1}. {account.account_name}
+                      </span>
+                      <span className={account.has_success_plan ? "text-green-600" : "text-red-600"}>
+                        {account.has_success_plan ? '✓' : '✗'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Days Since Last Update */}
+            {data.daysSinceLastUpdate !== null && (
+              <div className="text-center pt-3 border-t mt-3">
+                <div className="text-xs text-muted-foreground leading-relaxed">
+                  It's been{' '}
+                  <span className="text-base font-bold text-[#008060]">
+                    {data.daysSinceLastUpdate === 0 ? '0' : 
+                     data.daysSinceLastUpdate === 1 ? '1' : 
+                     data.daysSinceLastUpdate}
+                  </span>
+                  {' '}{data.daysSinceLastUpdate === 1 ? 'day' : 'days'} since you've made any Success Plan Updates.
+                  <br />
+                  Do with this information what you will.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

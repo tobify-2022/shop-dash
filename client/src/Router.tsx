@@ -1,6 +1,8 @@
 import { Route, Switch } from 'wouter';
 import { AppLayout } from './components/layout/AppLayout';
 import Home from './pages/Home';
+import AppChecker from './pages/AppChecker';
+import RegionalInsights from './pages/RegionalInsights';
 
 // Placeholder pages for navigation
 const PlaceholderPage = ({ title }: { title: string }) => (
@@ -29,6 +31,8 @@ export function Router() {
         <Route path="/success-plans">
           {() => <PlaceholderPage title="Success Plans" />}
         </Route>
+        <Route path="/app-checker" component={AppChecker} />
+        <Route path="/regional-insights" component={RegionalInsights} />
         <Route path="/goals/nrr">
           {() => <PlaceholderPage title="NRR Goals" />}
         </Route>

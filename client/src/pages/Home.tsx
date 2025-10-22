@@ -10,8 +10,10 @@ import { SupportOverviewCard } from '@/components/dashboard/support-overview-car
 import { SuccessPlanStatusChart } from '@/components/dashboard/success-plan-status-chart';
 import { EngagementPriorityHelper } from '@/components/dashboard/engagement-priority-helper';
 import { ProductChanges } from '@/components/dashboard/product-changes';
+import { LaunchCasesCard } from '@/components/dashboard/launch-cases-card';
+import { AppActivityCard } from '@/components/dashboard/app-activity-card';
+import { ShopifyUpdatesCard } from '@/components/dashboard/shopify-updates-card';
 import { fetchBookOfBusiness, fetchProductAdoptionSignals, fetchProductChanges } from '@/lib/merchant-snapshot-service';
-import { runFullInvestigation } from '@/lib/schema-investigation';
 
 export default function Home() {
   const { user, loading: identityLoading } = useIdentity();
@@ -140,94 +142,99 @@ export default function Home() {
   return (
     <div className="bg-background min-h-full">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-[#006d4e] to-[#008060] text-white px-6 py-6">
-        <div className="max-w-[1600px] mx-auto flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Good morning, {user?.given_name || 'Dugald'}!</h1>
-            <p className="text-sm mt-1 text-green-50">Here's your merchant success overview for today.</p>
-            <p className="text-xs mt-0.5 text-green-100">Senior MSM • North America</p>
-            
-            {/* Temporary Investigation Button */}
-            <button
-              onClick={() => runFullInvestigation()}
-              className="mt-3 px-3 py-1 text-xs bg-white/20 hover:bg-white/30 rounded border border-white/30 transition-colors"
-            >
-              🔍 Investigate BigQuery Schema (Check Console)
-            </button>
-          </div>
-          
-          {/* Today's Focus Widget */}
-          <div className="bg-black/20 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[200px] border border-white/10">
-            <div className="text-xs font-medium text-green-50 mb-2">Today's Focus</div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">0 calls scheduled</div>
-              <div className="text-xs text-green-100">
-                {bobData?.highRisk || 0} merchants need attention
-              </div>
-            </div>
-          </div>
+      <div className="bg-gradient-to-r from-emerald-500/80 to-teal-500/80 text-white px-6 py-4">
+        <div className="max-w-[1600px] mx-auto">
+          <h1 className="text-3xl font-bold">Good morning, {user?.given_name || 'Dugald'}!</h1>
+          <p className="text-sm mt-1 text-white/90">Enjoy your daily dose of Data and get 'er done ✨</p>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
-        {/* Row 1: Top KPI Metrics (3 columns) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Book of Business + Portfolio GMV */}
-          {bobData && (
-            <BookOfBusinessGMVCard
-              totalMerchants={bobData.totalMerchants}
-              highRisk={bobData.highRisk}
-              mediumRisk={bobData.mediumRisk}
-              lowRisk={bobData.lowRisk}
-              noRiskProfile={bobData.noRiskProfile}
-              totalGMV={bobData.totalGMV}
-            />
-          )}
-
-          {/* Attainment Card (NRR + IPP Combined) */}
-          <AttainmentCard
-            msmName={effectiveMSMName}
-            msmEmail={effectiveMSMEmail}
-          />
-
-          {/* Placeholder Card */}
-          <div className="border-2 border-dashed border-border rounded-lg p-6 flex items-center justify-center bg-card">
-            <div className="text-center text-muted-foreground">
-              <div className="text-sm font-medium">Additional metric</div>
-              <div className="text-xs mt-1">Coming soon</div>
+        {/* ===== ROW 1: Book of Business, Success Plan, Opportunities, Launch Cases ===== */}
+        {/* Fixed height: 450px - All tiles must be exactly this height */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Column 1: Book of Business + Attainment stacked (fixed height wrapper) */}
+          <div className="h-[450px] flex flex-col gap-4">
+            {bobData && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <BookOfBusinessGMVCard
+                  totalMerchants={bobData.totalMerchants}
+                  highRisk={bobData.highRisk}
+                  mediumRisk={bobData.mediumRisk}
+                  lowRisk={bobData.lowRisk}
+                  noRiskProfile={bobData.noRiskProfile}
+                  totalGMV={bobData.totalGMV}
+                  launchMerchants={bobData.launchMerchants}
+                  compact={true}
+                />
+              </div>
+            )}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <AttainmentCard
+                msmName={effectiveMSMName}
+                msmEmail={effectiveMSMEmail}
+              />
             </div>
           </div>
-        </div>
 
-        {/* Row 2: Product/Data Grid (4 columns) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Product Adoption */}
-          <ProductAdoptionCard data={productAdoption} />
-
-          {/* Opportunities */}
-          <OpportunitiesRollup msmName={effectiveMSMName} />
-
-          {/* Success Plan Status */}
-          <SuccessPlanStatusChart msmName={effectiveMSMName} />
-
-          {/* Support Overview */}
-          <SupportOverviewCard msmName={effectiveMSMName} />
-        </div>
-
-        {/* Row 3: Side-by-Side (60/40 split) */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          {/* Engagement Priority Helper (3/5 = 60%) */}
-          <div className="xl:col-span-3">
-            <EngagementPriorityHelper />
+          {/* Column 2: Success Plan Status (fixed height wrapper) */}
+          <div className="h-[450px]">
+            <SuccessPlanStatusChart msmName={effectiveMSMName} />
           </div>
 
-          {/* Product Changes (2/5 = 40%) */}
-          <div className="xl:col-span-2">
+          {/* Column 3: Opportunities (fixed height wrapper) */}
+          <div className="h-[450px]">
+            <OpportunitiesRollup msmName={effectiveMSMName} />
+          </div>
+
+          {/* Column 4: Launch Cases (fixed height wrapper) */}
+          <div className="h-[450px]">
+            <LaunchCasesCard msmName={effectiveMSMName} />
+          </div>
+        </div>
+
+        {/* ===== ROW 2: Product Adoption, Product Activations, App Installs, Support ===== */}
+        {/* Fixed height: 525px (increased by 25%) - All tiles must be exactly this height */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Column 1: Product Adoption (fixed height wrapper) */}
+          <div className="h-[525px]">
+            <ProductAdoptionCard data={productAdoption} />
+          </div>
+
+          {/* Column 2: Product Activations & Churns (fixed height wrapper) */}
+          <div className="h-[525px]">
             <ProductChanges 
               activations={productChangesData?.activations || []}
               deactivations={productChangesData?.deactivations || []}
             />
+          </div>
+
+          {/* Column 3: App Installs & Uninstalls (fixed height wrapper) */}
+          <div className="h-[525px]">
+            <AppActivityCard msmName={effectiveMSMName} />
+          </div>
+
+          {/* Column 4: Support Overview (fixed height wrapper) */}
+          <div className="h-[525px]">
+            <SupportOverviewCard msmName={effectiveMSMName} />
+          </div>
+        </div>
+
+        {/* ===== ROW 3: Engagement Priority Helper + Shopify Updates ===== */}
+        {/* Flexible height - tiles determine their own height */}
+        <div className="grid grid-cols-1 xl:grid-cols-10 gap-4">
+          
+          {/* Left: Engagement Priority Helper (70% width) */}
+          <div className="xl:col-span-7">
+            <EngagementPriorityHelper />
+          </div>
+
+          {/* Right: Shopify Updates (30% width) */}
+          <div className="xl:col-span-3">
+            <ShopifyUpdatesCard />
           </div>
         </div>
       </div>

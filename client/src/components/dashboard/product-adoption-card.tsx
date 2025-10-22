@@ -38,15 +38,15 @@ export function ProductAdoptionCard({ data }: ProductAdoptionCardProps) {
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <Package className="w-5 h-5 text-[#008060]" />
           Product Adoption
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">Across all accounts</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto">
         <div className="space-y-3">
           {products.map((product) => {
             const percentage = getPercentage(product.data.adopted, product.data.total);

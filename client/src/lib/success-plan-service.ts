@@ -8,12 +8,22 @@ export interface SuccessPlanStatusData {
   cancelled: number;
 }
 
+export interface Top5Account {
+  account_id: string;
+  account_name: string;
+  gmv_usd_l365d: number;
+  has_success_plan: boolean;
+}
+
 export interface SuccessPlanData {
   visions: SuccessPlanStatusData;
   priorities: SuccessPlanStatusData;
   outcomes: SuccessPlanStatusData;
   accountsWithoutPlans: number;
   totalAccounts: number;
+  daysSinceLastUpdate: number | null;
+  top5Accounts: Top5Account[];
+  top5Coverage: number; // percentage 0-100
 }
 
 export interface AccountWithoutPlan {
@@ -48,7 +58,8 @@ export async function fetchSuccessPlanStatus(msmName: string): Promise<SuccessPl
       SELECT 
         strategic_vision_status,
         priority_status,
-        success_outcome_status
+        success_outcome_status,
+        total_last_modified_date
       FROM \`sdp-for-analysts-platform.rev_ops_prod.ms_success_plan_daily\` sp
       INNER JOIN msm_accounts ma ON sp.account_id = ma.account_id
       WHERE (
@@ -82,7 +93,10 @@ export async function fetchSuccessPlanStatus(msmName: string): Promise<SuccessPl
       -- Account coverage metrics
       (SELECT COUNT(*) FROM msm_accounts) as total_accounts,
       (SELECT COUNT(*) FROM accounts_with_plans) as accounts_with_plans,
-      (SELECT COUNT(*) FROM msm_accounts) - (SELECT COUNT(*) FROM accounts_with_plans) as accounts_without_plans
+      (SELECT COUNT(*) FROM msm_accounts) - (SELECT COUNT(*) FROM accounts_with_plans) as accounts_without_plans,
+      
+      -- Days since last update (most recent update across all success plans)
+      DATE_DIFF(CURRENT_DATE(), MAX(total_last_modified_date), DAY) as days_since_last_update
     FROM success_plan_data
   `;
 
@@ -94,6 +108,51 @@ export async function fetchSuccessPlanStatus(msmName: string): Promise<SuccessPl
 
     console.log('✅ SUCCESS PLAN: Query executed, rows returned:', rows?.length || 0);
 
+    // Fetch top 5 accounts by GMV and check success plan coverage
+    const top5Query = `
+      WITH top_accounts AS (
+        SELECT 
+          sa.account_id,
+          sa.name as account_name,
+          ra.gmv_usd_l365d
+        FROM \`shopify-dw.sales.sales_accounts\` sa
+        LEFT JOIN \`shopify-dw.mart_revenue_data.revenue_account_summary\` ra
+          ON sa.account_id = ra.account_id
+        WHERE sa.account_owner = '${msmName}'
+          AND sa.account_type = 'Customer'
+          AND ra.gmv_usd_l365d IS NOT NULL
+        ORDER BY ra.gmv_usd_l365d DESC
+        LIMIT 5
+      ),
+      plans_check AS (
+        SELECT DISTINCT account_id
+        FROM \`sdp-for-analysts-platform.rev_ops_prod.ms_success_plan_daily\`
+        WHERE strategic_vision_id IS NOT NULL
+      )
+      SELECT 
+        ta.account_id,
+        ta.account_name,
+        ta.gmv_usd_l365d,
+        CASE WHEN pc.account_id IS NOT NULL THEN TRUE ELSE FALSE END as has_success_plan
+      FROM top_accounts ta
+      LEFT JOIN plans_check pc ON ta.account_id = pc.account_id
+      ORDER BY ta.gmv_usd_l365d DESC
+    `;
+
+    const top5Result = await quickAPI.queryBigQuery(top5Query);
+    const top5Accounts: Top5Account[] = top5Result.rows.map((row: any) => ({
+      account_id: row.account_id,
+      account_name: row.account_name,
+      gmv_usd_l365d: Number(row.gmv_usd_l365d) || 0,
+      has_success_plan: row.has_success_plan === true,
+    }));
+
+    const top5Coverage = top5Accounts.length > 0 
+      ? Math.round((top5Accounts.filter(a => a.has_success_plan).length / top5Accounts.length) * 100)
+      : 0;
+
+    console.log('📊 SUCCESS PLAN: Top 5 accounts coverage:', `${top5Coverage}%`, `(${top5Accounts.filter(a => a.has_success_plan).length}/${top5Accounts.length})`);
+
     // If no data, return all zeros but still get total accounts
     if (!rows || rows.length === 0) {
       console.log('⚠️ SUCCESS PLAN: No data found for MSM:', msmName);
@@ -103,6 +162,9 @@ export async function fetchSuccessPlanStatus(msmName: string): Promise<SuccessPl
         outcomes: { complete: 0, active: 0, overdue: 0, onHold: 0, cancelled: 0 },
         accountsWithoutPlans: 0,
         totalAccounts: 0,
+        daysSinceLastUpdate: null,
+        top5Accounts,
+        top5Coverage,
       };
     }
 
@@ -136,6 +198,9 @@ export async function fetchSuccessPlanStatus(msmName: string): Promise<SuccessPl
       },
       accountsWithoutPlans,
       totalAccounts,
+      daysSinceLastUpdate: data.days_since_last_update !== null && data.days_since_last_update !== undefined ? Number(data.days_since_last_update) : null,
+      top5Accounts,
+      top5Coverage,
     };
 
     const totalVisions = resultData.visions.complete + resultData.visions.active + resultData.visions.overdue + resultData.visions.onHold + resultData.visions.cancelled;

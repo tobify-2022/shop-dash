@@ -37,9 +37,15 @@ export function Popover({ children, content, open, onOpenChange }: PopoverProps)
 
   return (
     <div className="relative inline-block" ref={popoverRef}>
-      <div onClick={() => setOpen(!isOpen)}>{children}</div>
+      <div 
+        onClick={() => setOpen(!isOpen)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        {children}
+      </div>
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none">
+        <div className="absolute z-50 right-0 mt-2 w-80 rounded-md border bg-popover p-4 text-popover-foreground shadow-lg outline-none">
           {content}
         </div>
       )}
