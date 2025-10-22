@@ -448,7 +448,6 @@ export async function fetchProductChanges(msmName?: string): Promise<ProductChan
       account_name: account.account_name,
       shop_id: account.shop_id || 'N/A',
       shop_name: account.shop_name || account.account_name, // Fallback to account name if no shop domain
-      shop_type: account.shop_type as 'primary' | 'expansion' | 'dev' | 'standard' | undefined,
     };
 
     // Helper function to extract date string from BigQuery date object or string
