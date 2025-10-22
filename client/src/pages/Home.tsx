@@ -20,6 +20,14 @@ export default function Home() {
   const { isAuthenticated: bqAuthenticated, isLoading: bqAuthLoading, error: bqAuthError, needsManualAuth, requestAuth } = useBigQueryAuth();
   const { effectiveMSMName, effectiveMSMEmail } = useEffectiveMSM();
 
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   // Fetch Book of Business data
   const { data: bobData, error: bobError, isLoading: bobLoading } = useQuery({
     queryKey: ['book-of-business', effectiveMSMName],
@@ -144,7 +152,7 @@ export default function Home() {
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-emerald-500/80 to-teal-500/80 text-white px-6 py-4">
         <div className="max-w-[1600px] mx-auto">
-          <h1 className="text-3xl font-bold">Good morning, {user?.given_name || 'Dugald'}!</h1>
+          <h1 className="text-3xl font-bold">{getGreeting()}, {user?.given_name || 'Dugald'}!</h1>
           <p className="text-sm mt-1 text-white/90">Enjoy your daily dose of Data and get 'er done ✨</p>
         </div>
       </div>
