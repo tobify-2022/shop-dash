@@ -1,4 +1,4 @@
-import { Home, Search, Globe } from 'lucide-react';
+import { Home, Search } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
 
@@ -23,12 +23,6 @@ const navSections: NavSection[] = [
     title: 'UTILITY',
     items: [
       { title: 'App Checker', href: '/app-checker', icon: Search },
-    ],
-  },
-  {
-    title: 'INSIGHTS',
-    items: [
-      { title: 'Regional Insights', href: '/regional-insights', icon: Globe },
     ],
   },
 ];
