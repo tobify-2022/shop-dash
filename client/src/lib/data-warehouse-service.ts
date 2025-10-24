@@ -41,7 +41,6 @@ export async function fetchSupportTickets(msmName?: string): Promise<SupportSumm
     WHERE account_owner = '${msmName}'
       AND account_type = 'Customer'
       AND primary_shop_id IS NOT NULL
-    LIMIT 100
   `;
 
   const shopIdsResult = await quickAPI.queryBigQuery(shopIdsQuery);

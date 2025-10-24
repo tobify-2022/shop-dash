@@ -56,7 +56,6 @@ export async function fetchProductAdoptionSignals(msmName?: string): Promise<Pro
     FROM \`shopify-dw.sales.sales_accounts\`
     WHERE account_owner = '${msmName}'
       AND account_type = 'Customer'
-    LIMIT 100
   `;
 
   const accountResult = await quickAPI.queryBigQuery(accountQuery);
@@ -130,7 +129,6 @@ export async function fetchBookOfBusiness(msmName?: string): Promise<BookOfBusin
     WHERE account_owner = '${msmName}'
       AND account_type = 'Customer'
     ORDER BY name
-    LIMIT 100
   `;
 
   const result = await quickAPI.queryBigQuery(query);
@@ -256,7 +254,6 @@ export async function fetchEngagementData(msmName?: string): Promise<EngagementD
     WHERE account_owner = '${msmName}'
       AND account_type = 'Customer'
     ORDER BY gmv_usd_l365d DESC
-    LIMIT 100
   `;
 
   const accountsResult = await quickAPI.queryBigQuery(accountsQuery);

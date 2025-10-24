@@ -51,7 +51,6 @@ class SalesforceOpportunitiesService {
         FROM \`shopify-dw.sales.sales_accounts\` 
         WHERE account_owner = '${userName}'
           AND account_type = 'Customer'
-        LIMIT 100
       `;
 
       console.log('🔄 OPPORTUNITIES: Fetching accounts for MSM...');
@@ -101,7 +100,7 @@ class SalesforceOpportunitiesService {
         WHERE account_id IN (${accountIds.join(', ')})
           AND is_deleted = FALSE
         ORDER BY updated_at DESC
-        LIMIT 100
+        LIMIT 1000
       `;
 
       console.log('🔄 OPPORTUNITIES: Fetching opportunities...');
