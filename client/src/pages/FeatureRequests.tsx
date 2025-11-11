@@ -24,7 +24,7 @@ export default function FeatureRequests() {
                 </ul>
               </div>
               <a
-                href="https://github.com/Shopify/CMS-Dash/issues"
+                href="https://github.com/tobify-2022/shop-dash/issues"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[#008060] text-white rounded-lg hover:bg-[#006d4e] transition-colors"

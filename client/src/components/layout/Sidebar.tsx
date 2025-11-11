@@ -28,7 +28,7 @@ const navSections: NavSection[] = [
     title: 'Utilities',
     items: [
       { title: 'Changelog', href: '/changelog', icon: FileText },
-      { title: 'GitHub Repo', href: 'https://github.com/Shopify/CMS-Dash', icon: Github, external: true },
+      { title: 'GitHub Repo', href: 'https://github.com/tobify-2022/shop-dash', icon: Github, external: true },
       { title: 'Feature Requests', href: '/feature-requests', icon: MessageSquare },
     ],
   },

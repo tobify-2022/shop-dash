@@ -83,7 +83,7 @@ npm run build
 
 ## 📝 Notes
 
-- This project was separated from the main CMS-Dash repository to provide dedicated focus on Shop Pay analytics
 - Deployment target: `spi-analysis.quick.shopify.io`
 - Manifest name: `spi-analysis` (configured in `client/public/manifest.json` and `quick.config.js`)
+- Repository: https://github.com/tobify-2022/shop-dash
 

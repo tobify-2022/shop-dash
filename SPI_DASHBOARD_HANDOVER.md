@@ -77,18 +77,22 @@ The Shop Pay Installments (SPI) Performance Dashboard is a Quick.js application 
 ### Project Structure
 
 ```
-CMS-Dash/
+shop-dash/
 ├── client/
 │   ├── src/
 │   │   ├── components/
-│   │   │   └── spi/
-│   │   │       └── BusinessImpactSummary.tsx  # Hero section component
+│   │   │   ├── spi/                              # SPI-specific components
+│   │   │   │   └── BusinessImpactSummary.tsx      # Hero section component
+│   │   │   ├── shop-pay/                         # Shop Pay-specific components
+│   │   │   └── layout/                           # Shared layout components
 │   │   ├── lib/
 │   │   │   ├── shop-pay-installments-service.ts  # Core SPI metrics service
-│   │   │   ├── merchant-list-service.ts          # Store/merchant fetching
+│   │   │   ├── shop-pay-service.ts               # Shop Pay metrics service
+│   │   │   ├── merchant-list-service.ts           # Store/merchant fetching
 │   │   │   └── quick-api.ts                      # BigQuery wrapper
 │   │   ├── pages/
-│   │   │   └── ShopPayInstallmentsDashboard.tsx   # Main dashboard page
+│   │   │   ├── ShopPayInstallmentsDashboard.tsx  # SPI dashboard page
+│   │   │   └── ShopPayDashboard.tsx               # Shop Pay dashboard page
 │   │   └── contexts/
 │   │       ├── msm-context.tsx                   # MSM context
 │   │       └── identity-context.tsx              # User identity
@@ -499,7 +503,7 @@ The application includes extensive console logging:
 
 - **Primary Contact:** [Your Name/Team]
 - **Slack Channel:** [Channel Name]
-- **Repository:** [GitHub Repo URL]
+- **Repository:** https://github.com/tobify-2022/shop-dash
 
 ### Quick.js Support
 
