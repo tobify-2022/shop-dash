@@ -78,14 +78,17 @@ export const quickAPI = {
       // Execute query via Quick's data warehouse service
       // Auth should already be handled by BigQueryAuthProvider
       const result = await window.quick.dw.querySync(query, [], {
-        timeoutMs: 60000,
+        timeoutMs: 120000, // Increased timeout for complex queries
         maxResults: 10000
       });
       
       console.log('✅ Query executed successfully:', result);
+      console.log('📊 Result type:', typeof result);
+      console.log('📊 Result is array:', Array.isArray(result));
 
-      // Quick's querySync returns an array directly
+      // Handle null/undefined result
       if (!result) {
+        console.warn('⚠️ Query returned null/undefined, returning empty result');
         return { rows: [] };
       }
 
@@ -94,9 +97,16 @@ export const quickAPI = {
         return { rows: result };
       }
 
+      // Check if result is an error object
+      if (typeof result === 'object' && 'error' in result) {
+        const errorMessage = (result as any).error?.message || JSON.stringify(result);
+        console.error('❌ BigQuery returned error:', errorMessage);
+        throw new Error(`BigQuery error: ${errorMessage}`);
+      }
+
       // Quick API returns { results: [...] } not { rows: [...] }
       if (typeof result === 'object' && 'results' in result) {
-        return { rows: (result as any).results };
+        return { rows: (result as any).results || [] };
       }
 
       // If result has rows property, return as is
@@ -104,11 +114,32 @@ export const quickAPI = {
         return result as BigQueryResult;
       }
 
+      // If result is a string, try to parse it as JSON
+      if (typeof result === 'string') {
+        try {
+          const parsed = JSON.parse(result);
+          if (Array.isArray(parsed)) {
+            return { rows: parsed };
+          }
+          if (parsed && typeof parsed === 'object' && 'rows' in parsed) {
+            return parsed as BigQueryResult;
+          }
+        } catch (parseError) {
+          console.error('❌ Failed to parse string result as JSON:', parseError);
+          throw new Error('Invalid response format from BigQuery');
+        }
+      }
+
       // Otherwise, wrap the result as a single row
       return { rows: [result] };
     } catch (error) {
       console.error('BigQuery query failed:', error);
-      throw error;
+      // If it's already an Error, throw it as-is
+      if (error instanceof Error) {
+        throw error;
+      }
+      // Otherwise, wrap it
+      throw new Error(`BigQuery query failed: ${String(error)}`);
     }
   },
 };

@@ -1,7 +1,7 @@
 {
-  "name": "god-mode",
-  "short_name": "MSM Dashboard",
-  "description": "Merchant Success Manager Dashboard with BigQuery integration",
+  "name": "spi-analysis",
+  "short_name": "SPI Analysis Dashboard",
+  "description": "Shop Pay Installments Performance Dashboard with BigQuery integration",
   "version": "1.0.0",
   "apis": {
     "identity": true,

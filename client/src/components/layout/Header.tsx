@@ -1,12 +1,18 @@
 import { Bell } from 'lucide-react';
 import { useIdentity } from '@/contexts/identity-context';
+import { Breadcrumbs } from './Breadcrumbs';
 
 export function Header() {
   const { user } = useIdentity();
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-10">
-      <div className="px-6 py-3 flex items-center justify-end gap-4">
+      <div className="px-6 py-3 flex items-center justify-between">
+        {/* Left Side - Breadcrumbs */}
+        <div className="flex-1">
+          <Breadcrumbs />
+        </div>
+
         {/* Right Side - Notifications & User */}
         <div className="flex items-center gap-4">
           {/* Notifications */}

@@ -2,7 +2,7 @@
 // Declares required APIs and permissions for the MSM Dashboard
 
 export default {
-  name: 'god-mode',
+  name: 'spi-analysis',
   apis: {
     // Identity API - for user authentication
     identity: true,
@@ -25,6 +25,8 @@ export default {
       'shopify-dw.mart_revenue_data',
       'shopify-dw.base',
       'shopify-dw.support',
+      'shopify-dw.money_products',
+      'shopify-dw.merchant_sales',
       'sdp-for-analysts-platform.rev_ops_prod',
     ],
   },
